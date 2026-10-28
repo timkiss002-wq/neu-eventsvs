@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ấn phẩm truyền thông – NEU Events</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" href="/img/favicon-neu.png" type="image/png">
+<link rel="stylesheet" href="/css/app.css">
+<style>
+  .as-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 18px; align-items: start; }
+  .as-list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; max-height: 680px; overflow: auto; }
+  .as-item { display: grid; grid-template-columns: 92px 1fr; gap: 12px; text-align: left; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+  .as-item:hover { border-color: var(--blue-mid); }
+  .as-item.sel { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
+  .as-item .th { height: 62px; border-radius: 7px; background: var(--bg) center / cover no-repeat; display: grid; place-items: center; color: var(--muted); }
+  .as-item .th svg { width: 22px; height: 22px; }
+  .as-item > div { min-width: 0; }
+  .as-item b { display: block; font-size: 15px; color: var(--ink); line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .as-item small { display: block; font-size: 14px; color: var(--muted); margin: 3px 0 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .as-preview { margin-top: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); display: grid; place-items: center; min-height: 220px; overflow: hidden; }
+  .as-preview img, .as-preview video { max-width: 100%; max-height: 420px; display: block; }
+  .as-preview iframe { width: 100%; height: 420px; border: 0; }
+  .as-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; margin-top: 14px; font-size: 15px; }
+  .as-meta dt { font-size: 13.5px; text-transform: uppercase; letter-spacing: .3px; color: var(--muted); margin-bottom: 4px; }
+  .as-meta dd { color: var(--ink); }
+  .as-note { margin-top: 12px; padding: 10px 12px; border-radius: 8px; font-size: 15px; line-height: 1.5; }
+  .as-note.red { background: #fdeeee; color: #8f2a2a; } .as-note.green { background: #e7f6ee; color: #17663a; } .as-note.gray { background: var(--bg); }
+  .as-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 14px; }
+  .as-filter { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+  .as-filter .inp { width: 100%; height: 36px; }
+  @media (max-width: 1000px) { .as-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 600px) { .as-meta { grid-template-columns: 1fr; } }
+</style>
+<link rel="stylesheet" href="/css/ui.css">
+<link rel="stylesheet" href="/css/enhance.css">
+</head>
+<body>
+
+<!-- Sidebar & header được dựng bởi /js/app.js theo tài khoản đăng nhập -->
+<aside class="sidebar" aria-label="Điều hướng chính"></aside>
+<div class="scrim" id="scrim"></div>
+<header class="header"></header>
+
+<div class="main">
+  <main class="container">
+    <div class="crumbs">NEU Events <span>/</span> <b id="crumb">Ấn phẩm truyền thông</b></div>
+    <div class="page-head">
+      <div>
+        <h1 id="pageTitle">Ấn phẩm truyền thông</h1>
+        <p id="pageSub"></p>
+      </div>
+      <button class="btn-primary" id="addBtn" hidden></button>
+    </div>
+    <section class="stats" id="stats"></section>
+    <div class="as-grid">
+      <section class="card">
+        <h3>Danh sách ấn phẩm</h3>
+        <div class="tabs" id="tabs">
+          <button class="tab" data-st="">Tất cả</button>
+          <button class="tab" data-st="pending">Chờ duyệt</button>
+          <button class="tab" data-st="approved">Đã duyệt</button>
+          <button class="tab" data-st="rejected">Từ chối</button>
+        </div>
+        <div class="as-filter">
+          <input class="inp" id="kw" placeholder="Tìm tên ấn phẩm, sự kiện">
+          <select class="inp" id="kind"><option value="">Tất cả loại</option></select>
+        </div>
+        <div class="as-list" id="list"><div class="loading"><span class="spinner"></span></div></div>
+      </section>
+      <section class="card" id="detail"><div class="hint">Chọn một ấn phẩm để xem chi tiết.</div></section>
+    </div>
+  </main>
+  <footer class="footer"></footer>
+</div>
+
+<script src="/js/app.js"></script>
+<script src="/js/pages/media-assets.js"></script>
+</body>
+</html>

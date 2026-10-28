@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Điểm Đoàn sinh viên – NEU Events</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" href="/img/favicon-neu.png" type="image/png">
+<link rel="stylesheet" href="/css/app.css">
+<style>
+  .up-tools { display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr)) auto; gap: 10px; align-items: end; }
+  .up-tools .inp, .up-tools select { width: 100%; height: 38px; }
+  .pts { font-weight: 700; font-size: 16px; color: var(--navy); }
+  .pts.neg { color: #c23a3a; }
+  .pts.pos { color: #1a7a43; }
+  .up-row { cursor: pointer; }
+  .hist { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; max-height: 360px; overflow: auto; }
+  .hist-item { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; font-size: 14.5px; }
+  .hist-item b { display: block; font-size: 15px; color: var(--ink); }
+  .hist-item small { color: var(--muted); }
+  .term-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .term-chip { padding: 8px 12px; border-radius: 9px; background: var(--bg); font-size: 14px; }
+  .term-chip b { display: block; font-size: 18px; color: var(--navy); }
+  @media (max-width: 1000px) { .up-tools { grid-template-columns: 1fr 1fr; } }
+</style>
+<link rel="stylesheet" href="/css/ui.css">
+<link rel="stylesheet" href="/css/enhance.css">
+</head>
+<body>
+
+<!-- Sidebar & header được dựng bởi /js/app.js theo tài khoản đăng nhập -->
+<aside class="sidebar" aria-label="Điều hướng chính"></aside>
+<div class="scrim" id="scrim"></div>
+<header class="header"></header>
+
+<div class="main">
+  <main class="container">
+    <div class="crumbs">NEU Events <span>/</span> <b>Điểm Đoàn sinh viên</b></div>
+    <div class="page-head">
+      <div>
+        <h1>Điểm Đoàn sinh viên</h1>
+        <p>Tra cứu điểm Đoàn từng sinh viên theo học kỳ, xem lịch sử điểm, cộng / trừ điểm thủ công (bắt buộc căn cứ) và xuất bảng điểm.</p>
+      </div>
+      <button class="btn-outline" id="exportBtn"></button>
+    </div>
+    <section class="stats" id="stats"></section>
+    <section class="card">
+      <div class="up-tools">
+        <div><label class="label" for="kw">Tìm sinh viên</label><input class="inp" id="kw" placeholder="MSSV, họ tên hoặc email"></div>
+        <div><label class="label" for="cls">Lớp</label><select class="inp" id="cls"><option value="">Tất cả lớp</option></select></div>
+        <div><label class="label" for="term">Học kỳ</label><select class="inp" id="term"></select></div>
+        <div><label class="label" for="sort">Sắp xếp</label><select class="inp" id="sort">
+          <option value="points">Điểm cao → thấp</option><option value="activities">Số hoạt động</option><option value="name">Họ tên</option><option value="code">MSSV</option></select></div>
+      </div>
+      <div class="table-wrap" style="margin-top:16px">
+        <table class="tbl"><thead><tr><th>MSSV</th><th>Sinh viên</th><th>Hoạt động</th><th>Điểm sự kiện</th><th>Điều chỉnh</th><th>Tổng điểm Đoàn</th><th></th></tr></thead>
+        <tbody id="rows"><tr><td colspan="7"><div class="loading"><span class="spinner"></span></div></td></tr></tbody></table>
+      </div>
+      <div class="toolbar" style="margin-top:14px"><p class="fine" id="foot" style="margin:0"></p><div class="pager" id="pager"></div></div>
+    </section>
+  </main>
+  <footer class="footer"></footer>
+</div>
+
+<script src="/js/app.js"></script>
+<script src="/js/pages/union-points.js"></script>
+</body>
+</html>
