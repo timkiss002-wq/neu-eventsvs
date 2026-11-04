@@ -106,7 +106,7 @@
   };
   const tag = (key, text) => { const [t, c] = STATUS[key] || [key, '']; return `<span class="st ${c}">${esc(text || t)}</span>`; };
   const phaseTag = (e) => (e.status === 'approved' ? tag(e.phase) : tag(e.status));
-  const ROLE = { student: 'Sinh viên', organizer: 'Ban tổ chức', doan: 'Văn phòng Đoàn', media: 'Phòng Truyền thông', sysadmin: 'Quản trị hệ thống' };
+  const ROLE = { guest: 'Khách', student: 'Sinh viên', organizer: 'Ban tổ chức', doan: 'Văn phòng Đoàn', media: 'Phòng Truyền thông', sysadmin: 'Quản trị hệ thống' };
   const STAFF_REVIEW = ['doan', 'media'];
   // Tiến độ duyệt tuần tự: Bước 1 – Văn phòng Đoàn (duyệt kế hoạch, cấp điểm Đoàn) → Bước 2 – Phòng Truyền thông (duyệt ấn phẩm) → công khai
   const SIDE = { doan: 'Văn phòng Đoàn', media: 'Phòng Truyền thông' };
@@ -177,7 +177,7 @@
   const coverBg = (e) => `url('${coverOf(e)}'), url('${svgCover(e)}')`;
 
   // ---------------- Gọi API ----------------
-  async function api(url, { method = 'GET', body, form } = {}) {
+  async function api(url, { method = 'GET', body, form, quiet401 = false } = {}) {
     const opt = { method, headers: {}, credentials: 'same-origin' };
     if (form) opt.body = form;
     else if (body !== undefined) { opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body); }
@@ -185,6 +185,7 @@
     try { res = await fetch(url, opt); } catch { throw new Error('Không kết nối được máy chủ. Kiểm tra server đã chạy chưa (npm start).'); }
     let data = null;
     try { data = await res.json(); } catch { /* không phải JSON */ }
+    if (res.status === 401 && quiet401) throw Object.assign(new Error('guest'), { status: 401 });
     if (res.status === 401 && !url.startsWith('/api/auth/login')) {
       location.href = `/login.html?next=${encodeURIComponent(location.pathname + location.search)}`;
       throw new Error('Phiên đăng nhập đã hết hạn.');
@@ -237,7 +238,7 @@
   const loadingHtml = '<div class="loading"><span class="spinner"></span></div>';
 
   // ---------------- Layout: sidebar + header ----------------
-  const HOME = { student: '/events.html', organizer: '/manage-events.html', doan: '/moderation.html', media: '/moderation.html', sysadmin: '/system.html' };
+  const HOME = { guest: '/events.html', student: '/events.html', organizer: '/manage-events.html', doan: '/moderation.html', media: '/moderation.html', sysadmin: '/system.html' };
 
   // Menu bên trái: chỉ hiện các mục tài khoản có quyền sử dụng
   function sidebarHtml(user, active, badges) {
@@ -378,13 +379,64 @@
     };
   }
 
+  // ---------------- Khách (chưa đăng nhập) ----------------
+  // Người ngoài Trường chỉ được xem sự kiện đã công khai; đăng ký tham gia, điểm danh... cần đăng nhập.
+  const GUEST = { role: 'guest', full_name: 'Khách', email: '' };
+  const loginUrl = () => `/login.html?next=${encodeURIComponent(location.pathname + location.search)}`;
+  function guestSidebarHtml(active) {
+    return `
+      <a href="/events.html" class="brand"><img class="brand-logo-img" src="/img/logo-neu.png" alt="Logo Trường Đại học Kinh tế Quốc dân"><div><div class="brand-name">NEU Events</div><div class="brand-sub">Đại học Kinh tế Quốc dân</div></div></a>
+      <nav class="nav nav-main">
+        <a href="/events.html" class="nav-item ${active === 'events' ? 'active' : ''}">${icon('calendar')}Sự kiện</a>
+      </nav>
+      <div class="support">
+        <div class="group-title">Bạn là sinh viên NEU?</div>
+        <a href="${loginUrl()}" class="nav-item">${icon('user')}Đăng nhập để đăng ký</a>
+        <a href="mailto:events@neu.edu.vn" class="mail">events@neu.edu.vn</a>
+      </div>`;
+  }
+  function guestHeaderHtml(term, terms) {
+    return `
+      <button class="icon-btn menu-btn" id="menuBtn" aria-label="Mở menu">${icon('menu')}</button>
+      <a href="/events.html" class="brand"><img class="brand-logo-img" src="/img/logo-neu.png" alt="Logo Trường Đại học Kinh tế Quốc dân"><div><div class="brand-name">NEU Events</div><div class="brand-sub">Đại học Kinh tế Quốc dân</div></div></a>
+      <div class="header-right">
+        <label class="term-wrap" title="Chọn học kỳ – năm học để xem sự kiện">${icon('calendar')}
+          <select class="term-select" id="termSel" aria-label="Học kỳ">${terms.map((t) => `<option value="${t.key}" ${t.key === term.key ? 'selected' : ''}>${esc(t.short)}</option>`).join('')}</select>
+        </label>
+        <span class="divider"></span>
+        <a class="btn-primary" href="${loginUrl()}">${icon('user')}Đăng nhập</a>
+      </div>`;
+  }
+  async function initGuest(page) {
+    let info;
+    try { info = await api('/api/auth/guest'); } catch (e) { document.body.innerHTML = `<div style="padding:40px;font:14px Inter,sans-serif">${esc(e.message)}</div>`; throw e; }
+    const terms = info.terms || [info.term];
+    const term = pickTerm(terms, info.term);
+    const side = document.querySelector('.sidebar') || document.body.insertBefore(Object.assign(document.createElement('aside'), { className: 'sidebar' }), document.body.firstChild);
+    side.setAttribute('aria-label', 'Điều hướng chính');
+    side.innerHTML = guestSidebarHtml(page);
+    document.querySelector('.header').innerHTML = guestHeaderHtml(term, terms);
+    document.getElementById('termSel').addEventListener('change', (e) => { setTerm(e.target.value); location.reload(); });
+    fixCrumbs(GUEST);
+    const footer = document.querySelector('.footer'); if (footer) footer.innerHTML = FOOTER;
+    const body = document.body;
+    const scrim = document.getElementById('scrim') || Object.assign(document.createElement('div'), { className: 'scrim', id: 'scrim' });
+    if (!scrim.parentNode) body.appendChild(scrim);
+    document.getElementById('menuBtn').onclick = () => body.classList.add('nav-open');
+    scrim.onclick = () => body.classList.remove('nav-open');
+    App.term = term; App.terms = terms; App.currentTerm = info.term; App.guest = true;
+    return { user: { ...GUEST }, term, terms };
+  }
+
   /**
    * Khởi tạo trang có layout. Trả về { user, term }.
+   *   guest: true – trang cho phép khách chưa đăng nhập xem (user.role = 'guest')
    *   App.init({ page: 'events', roles: ['student','organizer','doan','media'] })
    */
-  async function init({ page, roles } = {}) {
+  async function init({ page, roles, guest = false } = {}) {
     let me;
-    try { me = await api('/api/auth/me'); } catch (e) { if (!String(e.message).includes('hết hạn')) document.body.innerHTML = `<div style="padding:40px;font:14px Inter,sans-serif">${esc(e.message)}</div>`; throw e; }
+    try { me = await api('/api/auth/me', { quiet401: guest }); } catch (e) {
+      if (guest && e.status === 401) return initGuest(page); if (!String(e.message).includes('hết hạn')) document.body.innerHTML = `<div style="padding:40px;font:14px Inter,sans-serif">${esc(e.message)}</div>`; throw e; }
     const { user, unread, badges = {} } = me;
     const terms = me.terms || [me.term];
     const term = pickTerm(terms, me.term);
@@ -413,6 +465,6 @@
     api, init, toast, modal, setTerm, displayOf, fixCrumbs, confirmBox, askReason, download, logout, HOME, ROLE, LEVEL, ACTION, actionTag,
     STAFF_REVIEW, SIDE, approvalHtml,
     icon, stars, esc, nl2br, fmtDate, fmtShort, fmtTime, fmtDateTime, fmtLongDate, weekday, fmtRange, fmtNum, fmtPct, fmtMoney, fmtSize,
-    initials, ago, toInput, param, tag, phaseTag, coverOf, coverBg, emptyState, loadingHtml, toDate,
+    loginUrl, initials, ago, toInput, param, tag, phaseTag, coverOf, coverBg, emptyState, loadingHtml, toDate,
   };
 })();

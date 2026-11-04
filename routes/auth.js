@@ -21,6 +21,12 @@ router.get('/config', (_req, res) => {
   res.json({ site_name: s.site_name, support_email: s.support_email, maintenance: s.maintenance_mode, maintenance_message: s.maintenance_message, password_min_length: s.password_min_length });
 });
 
+// Thông tin cho khách xem sự kiện khi chưa đăng nhập (học kỳ hiện tại, danh sách học kỳ)
+router.get('/guest', (_req, res) => {
+  if (settings.get('maintenance_mode')) return res.status(503).json({ error: settings.get('maintenance_message') });
+  res.json({ term: termOf(now()), terms: termList(), site: { name: settings.get('site_name'), support_email: settings.get('support_email') } });
+});
+
 router.post('/login', wrap((req, res) => {
   const { username = '', password = '', remember = false } = req.body || {};
   if (!username.trim() || !password) fail(400, 'Vui lòng nhập MSSV/email và mật khẩu.');

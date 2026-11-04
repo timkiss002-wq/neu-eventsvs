@@ -9,8 +9,20 @@ const { now, normTime, notify, audit, wrap, fail, termOf, termRange } = require(
 const { EVENT_SELECT, decorate, getEvent, canManage, mustManage, canView, finalizeEndedEvents, activeSession, isReviewer, roomConflicts } = require('../lib/events');
 const { requireAuth, requireRole } = require('../middleware/auth');
 
+const settings = require('../lib/settings');
+
 const router = express.Router();
-router.use(requireAuth);
+// Khách (chưa đăng nhập, không phải sinh viên của Trường) được xem danh sách và chi tiết sự kiện đã công khai;
+// mọi thao tác khác (đăng ký, quản lý hồ sơ, tải kế hoạch...) bắt buộc đăng nhập.
+const PUBLIC_GET = /^\/(\d+)?$/;
+router.use((req, res, next) => {
+  if (req.user) return next();
+  if (req.method === 'GET' && PUBLIC_GET.test(req.path)) {
+    if (settings.get('maintenance_mode')) return res.status(503).json({ error: settings.get('maintenance_message') });
+    return next();
+  }
+  return requireAuth(req, res, next);
+});
 
 // ---------- Upload ----------
 const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
@@ -58,8 +70,10 @@ function myRegistration(userId, eventId) {
 }
 
 function eventExtras(ev, user) {
+  const guest = !user;
   const agenda = q.all('SELECT id, time_label, title, description FROM event_agenda WHERE event_id = ? ORDER BY sort_order, id', ev.id);
-  const files = q.all('SELECT id, original_name, mime, size, uploaded_at FROM event_files WHERE event_id = ? ORDER BY id', ev.id);
+  // Kế hoạch tổ chức (tệp đính kèm) chỉ dành cho người dùng đã đăng nhập
+  const files = guest ? [] : q.all('SELECT id, original_name, mime, size, uploaded_at FROM event_files WHERE event_id = ? ORDER BY id', ev.id);
   const session = activeSession(ev.id);
   // Ấn phẩm truyền thông: BTC & bộ phận duyệt thấy tất cả; người xem khác chỉ thấy ấn phẩm đã được duyệt
   const insider = canManage(user, ev) || isReviewer(user);
@@ -68,8 +82,8 @@ function eventExtras(ev, user) {
   const room_conflicts = insider && ev.room_id && ['draft', 'pending', 'rejected'].includes(ev.status) ? roomConflicts(ev.room_id, ev.start_at, ev.end_at, ev.id) : [];
   return {
     ...ev, agenda, files, assets, room_conflicts,
-    my_registration: user.role === 'student' ? myRegistration(user.id, ev.id) : null,
-    my_review: user.role === 'student' ? (q.get('SELECT rating, comment, is_anonymous, created_at FROM reviews WHERE user_id = ? AND event_id = ?', user.id, ev.id) || null) : null,
+    my_registration: !guest && user.role === 'student' ? myRegistration(user.id, ev.id) : null,
+    my_review: !guest && user.role === 'student' ? (q.get('SELECT rating, comment, is_anonymous, created_at FROM reviews WHERE user_id = ? AND event_id = ?', user.id, ev.id) || null) : null,
     can_manage: canManage(user, ev),
     attendance_open: !!(session && session.expires_at >= now()),
   };
@@ -104,7 +118,7 @@ router.get('/', wrap((req, res) => {
   if (!phase) { // mặc định: sắp/đang diễn ra trước, đã kết thúc sau
     rows.sort((a, b) => (a.phase === 'ended') - (b.phase === 'ended') || (a.phase === 'ended' ? b.start_at.localeCompare(a.start_at) : a.start_at.localeCompare(b.start_at)));
   }
-  if (req.user.role === 'student') {
+  if (req.user && req.user.role === 'student') {
     const mine = new Map(q.all('SELECT event_id, status, attendance FROM registrations WHERE user_id = ?', req.user.id).map((r) => [r.event_id, r]));
     rows = rows.map((e) => ({ ...e, my_registration: mine.get(e.id) || null }));
   }

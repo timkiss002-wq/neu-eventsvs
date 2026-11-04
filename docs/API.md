@@ -14,6 +14,7 @@
 |---|---|---|---|
 | POST | `/auth/login` | Công khai | `{ username, password, remember }` – username là MSSV/mã CB hoặc email |
 | POST | `/auth/logout` | Đã đăng nhập | Hủy phiên |
+| GET | `/auth/guest` | Công khai | Học kỳ hiện tại, danh sách học kỳ cho khách xem sự kiện khi chưa đăng nhập |
 | GET | `/auth/me` | Đã đăng nhập | Người dùng, học kỳ hiện tại, số thông báo chưa đọc, badge sidebar |
 | POST | `/auth/forgot` | Công khai | `{ username }` → tạo mã 6 số (demo: trả về `demo_code`) |
 | POST | `/auth/reset` | Công khai | `{ username, code, password }` |
@@ -25,8 +26,8 @@
 
 | Phương thức | Đường dẫn | Quyền | Mô tả |
 |---|---|---|---|
-| GET | `/events` | Tất cả | Sự kiện đã duyệt. Tham số: `q`, `category`, `unit`, `phase` (`open`/`upcoming`/`ongoing`/`ended`). SV kèm `my_registration` |
-| GET | `/events/:id` | Tất cả* | Chi tiết + chương trình, file, đăng ký/đánh giá của tôi, `can_manage`, `attendance_open`. *Hồ sơ chưa duyệt chỉ BTC/QL xem |
+| GET | `/events` | Công khai (cả khách) | Sự kiện đã duyệt. Tham số: `q`, `category`, `unit`, `phase` (`open`/`upcoming`/`ongoing`/`ended`). SV kèm `my_registration` |
+| GET | `/events/:id` | Công khai* | Chi tiết + chương trình, file (khách không nhận file kế hoạch), đăng ký/đánh giá của tôi, `can_manage`, `attendance_open`. *Hồ sơ chưa duyệt chỉ BTC/QL xem |
 | GET | `/events/:id/history` | BTC, QL | Lịch sử thao tác của hồ sơ |
 | GET | `/events/manage/list` | BTC, QL | Danh sách quản lý + đếm theo trạng thái. Tham số: `q`, `status` |
 | POST | `/events` | BTC, QL | Tạo hồ sơ (multipart): các trường sự kiện, `agenda` (JSON), `cover`, `files[]`, `submit=1` để gửi duyệt luôn |

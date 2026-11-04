@@ -46,8 +46,8 @@ app.use('/api/rooms', require('./routes/rooms'));
 app.use('/api/media', require('./routes/media'));
 app.use('/api/system', require('./routes/system'));
 
-// Danh mục dùng cho form, bộ lọc
-app.get('/api/meta', requireAuth, (_req, res) => {
+// Danh mục dùng cho form, bộ lọc (công khai: khách cũng dùng để lọc sự kiện)
+app.get('/api/meta', (_req, res) => {
   res.json({
     units: q.all('SELECT id, name, short_name FROM units ORDER BY name'),
     categories: q.all('SELECT id, name, color FROM categories ORDER BY id'),

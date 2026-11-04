@@ -47,6 +47,10 @@ Tài khoản cán bộ / đơn vị dùng email đuôi `@neu.edu.vn`, do Quản 
 
 ## 3. Chức năng theo phân hệ (5 phân hệ)
 
+**Khách (không cần đăng nhập)**
+- Người ngoài Trường xem được danh sách, lịch tháng và chi tiết các sự kiện đã công khai (`/events.html`, liên kết “Xem các sự kiện của Trường” ở trang đăng nhập); ấn phẩm đã duyệt hiển thị, kế hoạch tổ chức thì không.
+- Muốn đăng ký tham gia phải đăng nhập bằng tài khoản sinh viên NEU (nút “Đăng nhập để đăng ký” đưa về đúng sự kiện sau khi đăng nhập).
+
 **Sinh viên**
 - Khám phá, đăng ký / hủy đăng ký sự kiện, check-in / check-out bằng mã hoặc QR, đánh giá (có ẩn danh).
 - Theo dõi *Đã đăng ký* và **điểm Đoàn** (gồm điểm từ sự kiện và điểm Văn phòng Đoàn điều chỉnh) theo học kỳ.

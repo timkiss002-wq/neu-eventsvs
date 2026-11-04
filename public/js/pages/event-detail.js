@@ -2,7 +2,7 @@
 (async function () {
   const { api, esc, nl2br, icon, fmtDate, fmtTime, fmtDateTime, fmtLongDate, fmtRange, fmtNum, fmtSize, initials, tag, stars, toast, confirmBox, askReason, coverOf, ROLE } = App;
   let user;
-  try { ({ user } = await App.init({ page: 'events' })); } catch { return; }
+  try { ({ user } = await App.init({ page: 'events', guest: true })); } catch { return; }
   const id = Number(App.param('id'));
   const $ = (s) => document.getElementById(s);
 
@@ -97,6 +97,17 @@
     const reg = ev.my_registration;
     const btn = (cls, ic, label, act) => `<button class="${cls}" data-act="${act}">${icon(ic)}${label}</button>`;
     note.innerHTML = '';
+    if (user.role === 'guest') { // khách: chỉ xem; sinh viên NEU đăng nhập để đăng ký
+      if (ev.status === 'cancelled') { box.innerHTML = ''; return; }
+      if (ev.registration_open) {
+        box.innerHTML = `<a class="btn-primary" href="${App.loginUrl()}">${icon('ticket1')}Đăng nhập để đăng ký</a>`;
+        note.textContent = 'Bạn đang xem với tư cách khách. Sự kiện dành cho sinh viên NEU – đăng nhập bằng MSSV để đăng ký tham gia.';
+      } else {
+        box.innerHTML = `<button class="btn-primary" disabled>${icon('ticket1')}Đăng ký tham gia</button>`;
+        note.textContent = ev.phase === 'ended' ? 'Sự kiện đã kết thúc.' : ev.seats_left <= 0 ? 'Sự kiện đã đủ số lượng đăng ký.' : 'Đã hết hạn đăng ký.';
+      }
+      return;
+    }
     if (user.role !== 'student') {
       box.innerHTML = `<button class="btn-primary" disabled>${icon('ticket1')}Đăng ký tham gia</button>`;
       note.textContent = `Bạn đang đăng nhập với vai trò ${ROLE[user.role]}. Chỉ tài khoản sinh viên được đăng ký tham gia.`;

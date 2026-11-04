@@ -13,7 +13,8 @@ const { getEvent, canManage, isReviewer } = require('../lib/events');
 const { requireAuth, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
-router.use(requireAuth);
+// Khách được xem ấn phẩm đã duyệt của sự kiện công khai (ảnh banner, poster ở trang chi tiết); thao tác khác cần đăng nhập
+router.use((req, res, next) => (!req.user && req.method === 'GET' && /^\/assets\/\d+\/file$/.test(req.path) ? next() : requireAuth(req, res, next)));
 
 const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });

@@ -1,11 +1,11 @@
-// Trang Khám phá sự kiện (mọi vai trò)
+// Trang Khám phá sự kiện (mọi vai trò, kể cả khách chưa đăng nhập)
 // - Lọc theo trạng thái (tab), từ khóa, loại, đơn vị (gửi lên máy chủ)
 // - Lọc nhanh theo thời gian / còn chỗ / chủ đề (chip, lọc tại trình duyệt)
 // - Hai kiểu xem: Lưới và Theo ngày (timeline)
 (async function () {
   const { api, esc, icon, fmtTime, fmtNum, toast, coverBg } = App;
   let user;
-  try { ({ user } = await App.init({ page: 'events' })); } catch { return; }
+  try { ({ user } = await App.init({ page: 'events', guest: true })); } catch { return; }
   const $ = (s) => document.getElementById(s);
   let phase = App.param('phase') || '';
   let when = '';
@@ -15,7 +15,9 @@
   const VIEW_KEY = 'neu.events.view';
   let view = (() => { try { return localStorage.getItem(VIEW_KEY) || 'grid'; } catch { return 'grid'; } })();
 
-  if (user.role !== 'student') $('headActions').innerHTML = `<a class="btn-primary" href="/event-form.html">${icon('plus')}Tạo sự kiện</a>`;
+  const guest = user.role === 'guest';
+  if (guest) $('headActions').innerHTML = `<a class="btn-primary" href="${App.loginUrl()}">${icon('user')}Đăng nhập để đăng ký</a>`;
+  else if (user.role !== 'student') $('headActions').innerHTML = `<a class="btn-primary" href="/event-form.html">${icon('plus')}Tạo sự kiện</a>`;
   else $('headActions').innerHTML = `<a class="btn-outline" href="/registered.html">${icon('ticket')}Sự kiện đã đăng ký</a>`;
 
   const meta = await api('/api/meta');
@@ -308,7 +310,7 @@
     let y = now.getFullYear(); let m = now.getMonth();
     const MONTHS = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
     if (user.role === 'organizer') $('mcMineLbl').textContent = 'Sự kiện của đơn vị bạn';
-    if (App.STAFF_REVIEW.includes(user.role)) $('mcMineLbl').parentElement.hidden = true;
+    if (guest || App.STAFF_REVIEW.includes(user.role)) $('mcMineLbl').parentElement.hidden = true;
     function draw() {
       $('mcTitle').textContent = `${MONTHS[m]}, ${y}`;
       const first = new Date(y, m, 1);
