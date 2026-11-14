@@ -22,6 +22,69 @@ function defaultRange() {
   return { from: fmt(from).slice(0, 10), to: fmt(end).slice(0, 10) };
 }
 
+// ===== Phân tích mức độ quan tâm của sinh viên =====
+// Tỷ lệ lấp đầy = lượt đăng ký / số chỗ • Tỷ lệ tham dự = check-in / đăng ký (sự kiện đã kết thúc)
+const FILL_HIGH = 0.8;   // ≥ 80%: sinh viên quan tâm lớn
+const FILL_LOW = 0.5;    // < 50%: lấp đầy thấp
+function analyzeInterest(live, at) {
+  const rows = live.filter((e) => e.capacity > 0).map((e) => {
+    const fill = e.registered_count / e.capacity;
+    const attend = e.phase === 'ended' && e.registered_count ? e.present_count / e.registered_count : null;
+    const regOpen = e.phase === 'upcoming' && e.reg_deadline > at;
+    return {
+      id: e.id, title: e.title, code: e.code, unit_short: e.unit_short, unit_name: e.unit_name, category_id: e.category_id, category_name: e.category_name,
+      category_color: e.category_color, start_at: e.start_at, reg_deadline: e.reg_deadline, phase: e.phase, capacity: e.capacity,
+      registered: e.registered_count, present: e.present_count, fill, attend, reg_open: regOpen,
+      avg_rating: e.avg_rating, review_count: e.review_count,
+      level: fill >= FILL_HIGH ? 'high' : fill < FILL_LOW ? 'low' : 'mid',
+    };
+  });
+  // Quan tâm nhất: tỷ lệ lấp đầy cao nhất (cùng tỷ lệ thì nhiều lượt đăng ký hơn đứng trước)
+  const top = [...rows].sort((a, b) => b.fill - a.fill || b.registered - a.registered).slice(0, 5);
+  const most = [...rows].sort((a, b) => b.registered - a.registered)[0];
+  const low = rows.filter((r) => r.level === 'low').sort((a, b) => a.fill - b.fill);
+
+  // Gom theo loại sự kiện / đơn vị tổ chức
+  const group = (keyOf, nameOf, extra = () => ({})) => {
+    const m = new Map();
+    for (const r of rows) {
+      const k = keyOf(r);
+      if (!m.has(k)) m.set(k, { key: k, name: nameOf(r), ...extra(r), events: 0, registered: 0, capacity: 0, ended_reg: 0, ended_present: 0, ratings: [], low: 0, high: 0 });
+      const g = m.get(k);
+      g.events++; g.registered += r.registered; g.capacity += r.capacity;
+      if (r.phase === 'ended') { g.ended_reg += r.registered; g.ended_present += r.present; }
+      if (r.avg_rating) g.ratings.push(r.avg_rating);
+      if (r.level === 'low') g.low++; if (r.level === 'high') g.high++;
+    }
+    return [...m.values()].map(({ ratings, ...g }) => ({
+      ...g, avg_registered: g.registered / g.events, fill: g.capacity ? g.registered / g.capacity : null,
+      attend: g.ended_reg ? g.ended_present / g.ended_reg : null,
+      avg_rating: ratings.length ? Math.round((ratings.reduce((x, y) => x + y, 0) / ratings.length) * 10) / 10 : null,
+    })).sort((a, b) => (b.fill ?? 0) - (a.fill ?? 0));
+  };
+  const byCategory = group((r) => r.category_id, (r) => r.category_name, (r) => ({ color: r.category_color }));
+  const byUnit = group((r) => r.unit_short || r.unit_name, (r) => r.unit_name || r.unit_short);
+
+  // Nhận xét tự động
+  const pct = (v) => `${Math.round(v * 100)}%`;
+  const insights = [];
+  if (rows.length) {
+    const tot = rows.reduce((s, r) => s + r.registered, 0), cap = rows.reduce((s, r) => s + r.capacity, 0);
+    insights.push(`Tỷ lệ lấp đầy chung ${pct(tot / cap)} (${tot.toLocaleString('vi-VN')} lượt đăng ký / ${cap.toLocaleString('vi-VN')} chỗ của ${rows.length} sự kiện).`);
+    if (top[0]) insights.push(`Được quan tâm nhất: “${top[0].title}” – lấp đầy ${pct(top[0].fill)} (${top[0].registered}/${top[0].capacity} chỗ).`);
+    if (most && most.id !== top[0].id) insights.push(`Đông sinh viên đăng ký nhất: “${most.title}” với ${most.registered} lượt (quy mô ${most.capacity} chỗ, lấp đầy ${pct(most.fill)}).`);
+    const cats = byCategory.filter((c) => c.events >= 1);
+    if (cats.length > 1) {
+      insights.push(`Loại được quan tâm nhất: ${cats[0].name} (lấp đầy TB ${pct(cats[0].fill)}); thấp nhất: ${cats[cats.length - 1].name} (${pct(cats[cats.length - 1].fill)}).`);
+    }
+    const high = rows.filter((r) => r.level === 'high').length;
+    insights.push(`${high} sự kiện lấp đầy từ ${pct(FILL_HIGH)} trở lên; ${low.length} sự kiện lấp đầy dưới ${pct(FILL_LOW)}${low.filter((r) => r.reg_open).length ? ` (trong đó ${low.filter((r) => r.reg_open).length} sự kiện vẫn đang mở đăng ký, nên đẩy mạnh truyền thông)` : ''}.`);
+    const lowAttend = rows.filter((r) => r.attend != null && r.attend < 0.7);
+    if (lowAttend.length) insights.push(`${lowAttend.length} sự kiện đã kết thúc có tỷ lệ tham dự dưới 70% so với đăng ký – đăng ký nhưng không đến.`);
+  }
+  return { thresholds: { high: FILL_HIGH, low: FILL_LOW }, count: rows.length, top, low, byCategory, byUnit, insights };
+}
+
 function build(query, user) {
   finalizeEndedEvents();
   if (user && user.role === 'organizer') query = { ...query, unit: String(user.unit_id) };
@@ -93,7 +156,8 @@ function build(query, user) {
     phase: e.status === 'cancelled' ? 'cancelled' : e.phase, phase_label: PHASE_LABEL[e.status === 'cancelled' ? 'cancelled' : e.phase],
   }));
 
-  return { filters: { from, to, unit: query.unit || '', category: query.category || '' }, summary, weekly: buckets, monthly: days > 70, byCategory, table, generated_at: at };
+  const interest = analyzeInterest(live, at);
+  return { filters: { from, to, unit: query.unit || '', category: query.category || '' }, summary, weekly: buckets, monthly: days > 70, byCategory, table, interest, generated_at: at };
 }
 
 router.get('/', wrap((req, res) => res.json(build(req.query, req.user))));
@@ -141,6 +205,25 @@ router.get('/export', wrap(async (req, res) => {
   const tot = r.byCategory.reduce((s, c) => s + c.count, 0) || 1;
   r.byCategory.forEach((c) => { const row = s4.addRow([c.name, c.count, c.count / tot]); row.getCell(3).numFmt = '0.0%'; });
   s4.columns = [{ width: 20 }, { width: 12 }, { width: 12 }];
+
+  const I = r.interest;
+  const s5 = wb.addWorksheet('Mức độ quan tâm');
+  s5.addRow(['PHÂN TÍCH MỨC ĐỘ QUAN TÂM CỦA SINH VIÊN']).font = { bold: true, size: 14, color: { argb: 'FF0F2A5C' } };
+  I.insights.forEach((t) => s5.addRow([`• ${t}`]));
+  s5.addRow([]);
+  header(s5.addRow(['Sự kiện', 'Đơn vị', 'Loại', 'Bắt đầu', 'Số chỗ', 'Đăng ký', 'Lấp đầy', 'Tham dự / đăng ký', 'Đánh giá TB', 'Mức quan tâm']));
+  const LV = { high: 'Cao (≥ 80%)', mid: 'Trung bình', low: 'Thấp (< 50%)' };
+  [...I.top, ...I.low.filter((x) => !I.top.some((t) => t.id === x.id))].forEach((e) => {
+    const row = s5.addRow([e.title, e.unit_short, e.category_name, e.start_at.slice(0, 16), e.capacity, e.registered, e.fill, e.attend ?? '—', e.avg_rating ?? '—', LV[e.level]]);
+    row.getCell(7).numFmt = '0.0%'; if (e.attend != null) row.getCell(8).numFmt = '0.0%';
+  });
+  s5.addRow([]);
+  header(s5.addRow(['Loại sự kiện', 'Số sự kiện', 'Đăng ký TB/sự kiện', 'Lấp đầy TB', 'Tỷ lệ tham dự', 'Đánh giá TB', 'Số SK lấp đầy thấp']));
+  I.byCategory.forEach((c) => { const row = s5.addRow([c.name, c.events, Math.round(c.avg_registered), c.fill, c.attend ?? '—', c.avg_rating ?? '—', c.low]); row.getCell(4).numFmt = '0.0%'; if (c.attend != null) row.getCell(5).numFmt = '0.0%'; });
+  s5.addRow([]);
+  header(s5.addRow(['Đơn vị tổ chức', 'Số sự kiện', 'Đăng ký TB/sự kiện', 'Lấp đầy TB', 'Tỷ lệ tham dự', 'Đánh giá TB', 'Số SK lấp đầy thấp']));
+  I.byUnit.forEach((c) => { const row = s5.addRow([c.name, c.events, Math.round(c.avg_registered), c.fill, c.attend ?? '—', c.avg_rating ?? '—', c.low]); row.getCell(4).numFmt = '0.0%'; if (c.attend != null) row.getCell(5).numFmt = '0.0%'; });
+  s5.columns = [{ width: 46 }, { width: 18 }, { width: 18 }, { width: 16 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 18 }, { width: 12 }, { width: 16 }];
 
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.setHeader('Content-Disposition', `attachment; filename="bao-cao-su-kien-${r.filters.from}_${r.filters.to}.xlsx"`);

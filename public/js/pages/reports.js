@@ -32,7 +32,7 @@
     $('sAttSub').textContent = `${fmtNum(S.attendance_ended)} đã kết thúc • ${fmtNum(S.attendance_ongoing)} đang diễn ra`;
     $('sRate').textContent = fmtPct(S.rate);
     $('sRateSub').textContent = `${fmtNum(S.attendance_ended)} / ${fmtNum(S.registrations_ended)} đăng ký đã kết thúc`;
-    renderBars(d); renderDonut(d); renderTable(d);
+    renderBars(d); renderDonut(d); renderTable(d); renderInterest(d);
   }
 
   function niceMax(v) {
@@ -81,6 +81,38 @@
         <td><span class="st ${PH[e.phase]}">${esc(e.phase_label)}</span></td></tr>`).join('')
       : `<tr><td colspan="6">${App.emptyState('Không có dữ liệu', 'Thử mở rộng khoảng thời gian hoặc bỏ bớt bộ lọc.', 'chart')}</td></tr>`;
   }
+
+  // ----- Phân tích mức độ quan tâm: sự kiện thu hút nhất, sự kiện lấp đầy thấp, so sánh theo loại / đơn vị -----
+  let group = 'byCategory';
+  const pct = (v) => (v == null ? '—' : `${Math.round(v * 100)}%`);
+  const bar = (v, lvl, label) => `<div class="ia-bar"><div class="track"><i class="${lvl || ''}" style="width:${Math.min(100, Math.round((v || 0) * 100))}%"></i></div><b>${label}</b></div>`;
+  const lvlOf = (f, t) => (f == null ? '' : f >= t.high ? 'high' : f < t.low ? 'low' : 'mid');
+  const daysLeft = (dt) => Math.max(0, Math.ceil((new Date(dt.replace(' ', 'T')) - new Date()) / 86400000));
+  function renderInterest(d) {
+    const I = d.interest, t = I.thresholds;
+    $('insights').innerHTML = I.insights.length ? I.insights.map((x) => `<li>${esc(x)}</li>`).join('') : '<li>Chưa có sự kiện trong khoảng thời gian này.</li>';
+    const item = (e) => `<div class="ia-item"><a href="/event-detail.html?id=${e.id}">${esc(e.title)}</a>
+        <small>${esc(e.unit_short || '')} • ${esc(e.category_name || '')} • ${fmtShort(e.start_at)}${e.attend != null ? ` • tham dự ${pct(e.attend)}` : ''}${e.avg_rating ? ` • ${String(e.avg_rating.toFixed(1)).replace('.', ',')}★` : ''}</small>
+        ${bar(e.fill, e.level, `${fmtNum(e.registered)}/${fmtNum(e.capacity)} • ${pct(e.fill)}`)}</div>`;
+    $('topList').innerHTML = I.top.length ? I.top.map(item).join('') : '<div class="hint">Chưa có dữ liệu.</div>';
+    $('lowCount').textContent = I.low.length;
+    $('lowList').innerHTML = I.low.length ? I.low.map((e) => item(e).replace(/<\/div>$/, '') +
+        (e.reg_open ? `<span class="ia-tag">Đang mở đăng ký • còn ${daysLeft(e.reg_deadline)} ngày – nên tăng truyền thông</span>` : `<span class="ia-tag gray">${e.phase === 'ended' ? 'Đã kết thúc' : e.phase === 'ongoing' ? 'Đang diễn ra' : 'Đã hết hạn đăng ký'}</span>`) + '</div>').join('')
+      : `<div class="hint">Không có sự kiện nào lấp đầy dưới ${Math.round(t.low * 100)}%.</div>`;
+    const rows = I[group];
+    $('groupRows').innerHTML = rows.length ? rows.map((g) => `<tr>
+        <td>${g.color ? `<i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${g.color};margin-right:8px"></i>` : ''}<b>${esc(g.name || '—')}</b></td>
+        <td>${fmtNum(g.events)}</td>
+        <td>${fmtNum(Math.round(g.avg_registered))}</td>
+        <td>${bar(g.fill, lvlOf(g.fill, t), pct(g.fill))}</td>
+        <td>${pct(g.attend)}</td>
+        <td>${g.avg_rating ? `${String(g.avg_rating.toFixed(1)).replace('.', ',')}★` : '—'}</td>
+        <td>${g.low ? `<span class="st red">${g.low} sự kiện</span>` : '<span class="muted">0</span>'}</td></tr>`).join('')
+      : `<tr><td colspan="7">${App.emptyState('Không có dữ liệu', '', 'chart')}</td></tr>`;
+  }
+  document.querySelectorAll('#groupSeg button').forEach((b) => b.addEventListener('click', () => {
+    group = b.dataset.g; document.querySelectorAll('#groupSeg button').forEach((x) => x.classList.toggle('on', x === b)); if (last) renderInterest(last);
+  }));
 
   $('filterForm').addEventListener('submit', (e) => { e.preventDefault(); if ($('from').value > $('to').value) { App.toast('Ngày bắt đầu phải trước ngày kết thúc.', 'err'); return; } load(); });
   $('toggleAll').addEventListener('click', () => { showAll = !showAll; renderTable(last); });

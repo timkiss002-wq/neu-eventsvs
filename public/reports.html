@@ -168,6 +168,29 @@
   /* ===== Responsive ===== */
   @media (max-width: 1000px) { .term { display: none; } .stats { grid-template-columns: repeat(2, 1fr); } .filters { grid-template-columns: 1fr 1fr; } }
   @media (max-width: 960px) { .charts { grid-template-columns: 1fr; } }
+  .insights { list-style: none; margin-top: 14px; display: grid; gap: 8px; }
+  .insights li { position: relative; padding: 10px 12px 10px 34px; background: var(--blue-soft); border-radius: 8px; font-size: 14.5px; line-height: 1.5; color: var(--text); }
+  .insights li::before { content: ""; position: absolute; left: 14px; top: 17px; width: 7px; height: 7px; border-radius: 50%; background: var(--blue); }
+  .ia-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
+  .ia-box { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .ia-box h4, .ia-head h4 { font-size: 15.5px; font-weight: 600; color: var(--navy); display: flex; align-items: center; gap: 8px; }
+  .ia-list { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; max-height: 420px; overflow: auto; }
+  .ia-item a { font-size: 14.5px; font-weight: 600; color: var(--ink); }
+  .ia-item a:hover { color: var(--blue); }
+  .ia-item small { display: block; font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .ia-bar { display: grid; grid-template-columns: 1fr 112px; align-items: center; gap: 10px; margin-top: 6px; font-size: 13.5px; color: var(--text); }
+  .ia-bar .track { height: 8px; background: #eef1f6; border-radius: 6px; overflow: hidden; }
+  .ia-bar .track i { display: block; height: 100%; border-radius: 6px; background: var(--blue); }
+  .ia-bar .track i.low { background: #d64545; } .ia-bar .track i.mid { background: #e0a526; } .ia-bar .track i.high { background: #1f9d55; }
+  .ia-bar b { text-align: right; font-weight: 600; }
+  .ia-tag { display: inline-block; margin-top: 6px; font-size: 12.5px; padding: 2px 8px; border-radius: 10px; background: #fff4e0; color: #9a6200; }
+  .ia-tag.gray { background: #eef1f6; color: var(--muted); }
+  .ia-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 22px 0 10px; flex-wrap: wrap; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; background: #fff; padding: 7px 14px; font: inherit; font-size: 14px; color: var(--text); cursor: pointer; }
+  .seg button.on { background: var(--blue); color: #fff; }
+  .ia-table td .ia-bar { margin-top: 0; grid-template-columns: 1fr 48px; }
+  @media (max-width: 960px) { .ia-grid { grid-template-columns: 1fr; } }
   @media (max-width: 860px) {
     .sidebar { transform: translateX(-100%); transition: transform .2s; box-shadow: 0 10px 40px rgba(15,42,92,.18); }
     body.nav-open .sidebar { transform: none; }
@@ -287,6 +310,38 @@
         </div>
         <div class="legend-list" id="legendList"></div>
       </div>
+    </section>
+
+    <!-- Phân tích mức độ quan tâm -->
+    <section class="card" id="interestCard">
+      <div class="card-head">
+        <div>
+          <h3>Phân tích mức độ quan tâm của sinh viên</h3>
+          <div class="hint">Tỷ lệ lấp đầy = lượt đăng ký / số chỗ. Từ 80% trở lên: sinh viên quan tâm lớn • dưới 50%: lấp đầy thấp</div>
+        </div>
+      </div>
+      <ul class="insights" id="insights"></ul>
+      <div class="ia-grid">
+        <div class="ia-box">
+          <h4>Sự kiện được sinh viên quan tâm nhất</h4>
+          <div class="ia-list" id="topList"></div>
+        </div>
+        <div class="ia-box">
+          <h4>Sự kiện có tỷ lệ lấp đầy thấp <span class="st red" id="lowCount">0</span></h4>
+          <div class="ia-list" id="lowList"></div>
+        </div>
+      </div>
+      <div class="ia-head">
+        <h4>So sánh mức độ quan tâm</h4>
+        <div class="seg" id="groupSeg"><button type="button" class="on" data-g="byCategory">Theo loại sự kiện</button><button type="button" data-g="byUnit">Theo đơn vị tổ chức</button></div>
+      </div>
+      <div class="table-wrap">
+        <table class="ia-table">
+          <thead><tr><th>Nhóm</th><th>Số sự kiện</th><th>Đăng ký TB / sự kiện</th><th style="width:24%">Lấp đầy TB</th><th>Tham dự / đăng ký</th><th>Đánh giá TB</th><th>Lấp đầy thấp</th></tr></thead>
+          <tbody id="groupRows"></tbody>
+        </table>
+      </div>
+      <p class="fine" style="margin-top:14px">Sự kiện sắp diễn ra còn đang mở đăng ký có thể tăng thêm lượt đăng ký; tỷ lệ tham dự chỉ tính sự kiện đã kết thúc. Sự kiện đã hủy không được tính.</p>
     </section>
 
     <!-- Bảng hiệu quả -->

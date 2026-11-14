@@ -68,7 +68,7 @@ Tài khoản cán bộ / đơn vị dùng email đuôi `@neu.edu.vn`, do Quản 
 - **Điểm Đoàn sinh viên**: bảng điểm theo học kỳ / lớp, **lịch sử điểm từng sinh viên**, hoạt động chờ cộng điểm, **cộng / trừ điểm thủ công** (bắt buộc căn cứ), xuất Excel.
 - **Tài khoản đơn vị**: cấp tài khoản Ban tổ chức (email @neu.edu.vn, mật khẩu tạm hiển thị một lần), đổi email đăng nhập, đặt lại mật khẩu, khóa / mở khóa.
 - **Nhật ký thao tác**: tra cứu lịch sử thao tác theo nhóm, ngày, từ khóa.
-- Báo cáo thống kê toàn trường, xem đánh giá.
+- Báo cáo thống kê toàn trường, xem đánh giá; **phân tích mức độ quan tâm của sinh viên**: nhận xét tự động, sự kiện được quan tâm nhất (lấp đầy ≥ 80%), sự kiện lấp đầy thấp (< 50%, đánh dấu sự kiện còn mở đăng ký cần tăng truyền thông), so sánh theo loại sự kiện và đơn vị tổ chức (đăng ký TB, lấp đầy, tham dự, đánh giá); có trong file Excel xuất báo cáo.
 
 **Phòng Truyền thông**
 - **Duyệt sự kiện – bước 2** (chỉ sau khi VP Đoàn đã duyệt): xem trước banner, poster nộp kèm hồ sơ; duyệt → các ấn phẩm được duyệt và **sự kiện được công khai**; từ chối → hồ sơ trả về BTC.
