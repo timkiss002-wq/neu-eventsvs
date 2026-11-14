@@ -5,7 +5,8 @@ const os = require('os');
 const QRCode = require('qrcode');
 const ExcelJS = require('exceljs');
 const { q } = require('../db/database');
-const { now, addMinutes, randomCode, notify, audit, wrap, fail } = require('../lib/util');
+const { now, addMinutes, randomCode, notify, audit, wrap, fail, ipInNetworks } = require('../lib/util');
+const settings = require('../lib/settings');
 const { checkoutGrace, checkinLead, EVENT_SELECT, decorate, getEvent, mustManage, closeAttendance, finalizeEndedEvents, activeSession, rotatingCode, verifyRotating, QR_STEP } = require('../lib/events');
 const { requireAuth, requireRole } = require('../middleware/auth');
 
@@ -49,6 +50,10 @@ router.post('/checkin', requireRole('student'), wrap((req, res) => {
   const s = activeSession(ev.id);
   const at = now();
   if (!s) fail(400, 'Ban tổ chức chưa mở phiên điểm danh.');
+  // Mã điểm danh chỉ có hiệu lực khi thiết bị dùng mạng của Trường
+  if (settings.get('attendance_school_network') && !ipInNetworks(req.ip, settings.get('school_networks'))) {
+    fail(403, 'Thiết bị của bạn không kết nối mạng của Trường. Hãy kết nối Wi-Fi của Trường tại địa điểm sự kiện rồi quét lại mã.');
+  }
   if (s.expires_at < at) fail(400, 'Mã điểm danh đã hết hiệu lực.');
   // Mã động: chỉ chấp nhận mã của khung 10 giây hiện tại (và khung liền trước để bù độ trễ)
   if (!verifyRotating(s, code)) fail(400, method === 'qr'
@@ -125,7 +130,7 @@ router.get('/:eventId', wrap(async (req, res) => {
   const total = q.get(`SELECT COUNT(*) n FROM registrations r JOIN users u ON u.id = r.user_id WHERE ${where.join(' AND ')}`, ...params).n;
   const lim = Math.min(100, Math.max(1, Number(size))); const off = (Math.max(1, Number(page)) - 1) * lim;
   const rows = q.all(`SELECT r.id, r.code, r.attendance, r.checked_in_at, r.check_method, r.checked_out_at, r.checkout_method, r.points_awarded,
-                             r.registered_at, u.full_name, u.code AS student_code, u.class_name
+                             r.registered_at, r.contact_email, r.contact_phone, u.full_name, u.code AS student_code, u.class_name
                       FROM registrations r JOIN users u ON u.id = r.user_id WHERE ${where.join(' AND ')}
                       ORDER BY CASE r.attendance WHEN 'pending' THEN 0 WHEN 'present' THEN 1 ELSE 2 END, r.checked_in_at DESC, u.full_name
                       LIMIT ? OFFSET ?`, ...params, lim, off).map((r) => ({ ...r, state: stateOf(r) }));
@@ -238,24 +243,24 @@ router.get('/:eventId/export', wrap(async (req, res) => {
   mustManage(req.user, ev);
   const completed = req.query.type === 'completed';
   const rows = q.all(`SELECT r.code, r.attendance, r.checked_in_at, r.check_method, r.checked_out_at, r.checkout_method, r.points_awarded, r.registered_at,
-                             u.full_name, u.code AS student_code, u.class_name, u.email
+                             r.contact_email, r.contact_phone, u.full_name, u.code AS student_code, u.class_name, u.email
                       FROM registrations r JOIN users u ON u.id = r.user_id
                       WHERE r.event_id = ? AND r.status = 'registered' ${completed ? "AND r.attendance = 'present' AND r.checked_out_at IS NOT NULL" : ''}
                       ORDER BY u.full_name`, ev.id);
   const wb = new ExcelJS.Workbook(); wb.creator = 'NEU Events';
   const ws = wb.addWorksheet(completed ? 'Hoàn thành' : 'Danh sách đăng ký');
-  ws.mergeCells('A1:L1'); ws.getCell('A1').value = `${completed ? 'DANH SÁCH SINH VIÊN HOÀN THÀNH' : 'DANH SÁCH ĐĂNG KÝ & ĐIỂM DANH'} – ${ev.title.toUpperCase()}`;
+  ws.mergeCells('A1:M1'); ws.getCell('A1').value = `${completed ? 'DANH SÁCH SINH VIÊN HOÀN THÀNH' : 'DANH SÁCH ĐĂNG KÝ & ĐIỂM DANH'} – ${ev.title.toUpperCase()}`;
   ws.getCell('A1').font = { bold: true, size: 14, color: { argb: 'FF0F2A5C' } };
-  ws.mergeCells('A2:L2'); ws.getCell('A2').value = `Mã sự kiện: ${ev.code} • Thời gian: ${ev.start_at.slice(0, 16)} – ${ev.end_at.slice(11, 16)} • Địa điểm: ${ev.location} • Điểm hoạt động: ${ev.points}`;
-  ws.mergeCells('A3:L3'); ws.getCell('A3').value = `Đăng ký: ${ev.registered_count} • Check-in: ${ev.present_count} • Hoàn thành: ${ev.completed_count} • Vắng: ${ev.absent_count} • Xuất lúc: ${now()}`;
+  ws.mergeCells('A2:M2'); ws.getCell('A2').value = `Mã sự kiện: ${ev.code} • Thời gian: ${ev.start_at.slice(0, 16)} – ${ev.end_at.slice(11, 16)} • Địa điểm: ${ev.location} • Điểm hoạt động: ${ev.points}`;
+  ws.mergeCells('A3:M3'); ws.getCell('A3').value = `Đăng ký: ${ev.registered_count} • Check-in: ${ev.present_count} • Hoàn thành: ${ev.completed_count} • Vắng: ${ev.absent_count} • Xuất lúc: ${now()}`;
   ws.addRow([]);
-  const head = ws.addRow(['STT', 'Họ và tên', 'MSSV', 'Lớp', 'Email', 'Mã đăng ký', 'Thời điểm đăng ký', 'Trạng thái', 'Check-in', 'Check-out', 'Hình thức', 'Điểm HĐ']);
+  const head = ws.addRow(['STT', 'Họ và tên', 'MSSV', 'Lớp', 'Email liên hệ', 'SĐT liên hệ', 'Mã đăng ký', 'Thời điểm đăng ký', 'Trạng thái', 'Check-in', 'Check-out', 'Hình thức', 'Điểm HĐ']);
   head.eachCell((c) => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1451A8' } }; c.alignment = { vertical: 'middle' }; });
-  rows.forEach((r, i) => ws.addRow([i + 1, r.full_name, r.student_code, r.class_name || '', r.email, r.code, r.registered_at.slice(0, 16),
+  rows.forEach((r, i) => ws.addRow([i + 1, r.full_name, r.student_code, r.class_name || '', r.contact_email || r.email, r.contact_phone || '', r.code, r.registered_at.slice(0, 16),
     STATE_LABEL[stateOf(r)], r.checked_in_at ? r.checked_in_at.slice(0, 16) : '', r.checked_out_at ? r.checked_out_at.slice(0, 16) : '',
     [METHOD_LABEL[r.check_method], METHOD_LABEL[r.checkout_method]].filter(Boolean).join(' / '), r.points_awarded ?? '']));
-  [6, 26, 12, 22, 28, 16, 18, 14, 18, 18, 22, 9].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
-  ws.autoFilter = { from: 'A5', to: 'L5' };
+  [6, 26, 12, 22, 28, 14, 16, 18, 14, 18, 18, 22, 9].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+  ws.autoFilter = { from: 'A5', to: 'M5' };
   ws.views = [{ state: 'frozen', ySplit: 5 }];
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.setHeader('Content-Disposition', `attachment; filename="${completed ? 'hoan-thanh' : 'dang-ky'}-${ev.code}.xlsx"`);

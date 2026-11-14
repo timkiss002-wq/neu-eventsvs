@@ -60,6 +60,7 @@ function decide(req, res, approve) {
   const note = String(req.body?.note || '').trim();
   const checks = Array.isArray(req.body?.checks) ? req.body.checks.filter((c) => CHECKS[side].includes(c)) : [];
   if (!approve && note.length < 10) fail(400, 'Vui lòng nhập lý do từ chối (tối thiểu 10 ký tự) để ban tổ chức bổ sung.');
+  if (approve && checks.length < CHECKS[side].length) fail(400, 'Hồ sơ chưa đạt đủ tiêu chí kiểm duyệt bắt buộc – đánh dấu đủ các tiêu chí hoặc từ chối hồ sơ kèm lý do.');
   if (approve && ev.start_at <= now()) fail(400, 'Thời gian tổ chức đã qua, không thể phê duyệt. Hãy từ chối để BTC cập nhật lịch.');
 
   // Văn phòng Đoàn: kiểm tra phòng và cấp điểm Đoàn (cấp chương trình + số điểm)

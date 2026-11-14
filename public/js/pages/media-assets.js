@@ -74,7 +74,9 @@
       </dl>
       ${a.description ? `<div class="as-note gray"><b>Nội dung / ghi chú:</b> ${esc(a.description)}</div>` : ''}
       ${note}
-      ${actions ? `<div class="as-actions">${actions}</div>` : ''}`;
+      ${actions ? `<div class="as-actions">${actions}</div>` : ''}
+      <h4 class="as-hist-title">Lịch sử duyệt</h4><div class="as-hist" id="asHist"><div class="hint">Đang tải…</div></div>`;
+    loadHistory(a);
     if ($('okBtn')) $('okBtn').onclick = async () => {
       const ok = await modal({ title: 'Duyệt ấn phẩm?', desc: `"${esc(a.title)}" sẽ được phép đăng tải và hiển thị trên trang sự kiện.`, okText: 'Duyệt',
         html: '<label class="label">Nhận xét (không bắt buộc)</label><textarea class="inp" id="m-note"></textarea>',
@@ -91,6 +93,18 @@
       try { await api(`/api/media/assets/${a.id}`, { method: 'DELETE' }); toast('Đã xóa ấn phẩm.', 'ok'); selected = null; load(); } catch (err) { toast(err.message, 'err'); }
     };
     if ($('resendBtn')) $('resendBtn').onclick = () => submitForm({ event_id: a.event_id, kind: a.kind, title: a.title, channel: a.channel });
+  }
+
+  // Lịch sử duyệt ấn phẩm (các lần gửi / duyệt / từ chối, kể cả bản trước khi chỉnh sửa)
+  async function loadHistory(a) {
+    let items = [];
+    try { ({ items } = await api(`/api/media/assets/${a.id}/history`)); } catch { /* bỏ qua */ }
+    if (!$('asHist')) return;
+    const LBL = { submit: ['Gửi duyệt', ''], approved: ['Đã duyệt', 'green'], rejected: ['Từ chối', 'red'] };
+    $('asHist').innerHTML = items.length ? items.map((h) => `<div class="as-h ${LBL[h.kind][1]}"><i></i><div>
+        <b>${LBL[h.kind][0]}${h.version ? ` • ${esc(h.version)}${h.current ? ' (bản đang xem)' : ''}` : ''}</b>
+        <small>${esc(h.actor || 'Hệ thống')} • ${fmtDateTime(h.at)}${h.file ? ` • ${esc(h.file)}` : ''}</small>${h.note ? `<p>${esc(h.note)}</p>` : ''}</div></div>`).join('')
+      : '<div class="hint">Chưa có lịch sử duyệt.</div>';
   }
 
   // BTC gửi ấn phẩm mới

@@ -268,7 +268,8 @@
     const MANAGE = {
       organizer: [['manage', '/manage-events.html', 'Quản lý sự kiện', 'folder'], ['assets', '/media-assets.html', 'Ấn phẩm truyền thông', 'image'], ['reports', '/reports.html', 'Báo cáo – thống kê', 'chart']],
       doan: [['moderation', '/moderation.html', 'Duyệt sự kiện', 'shield'], ['points', '/points.html', 'Duyệt điểm Đoàn', 'gift'], ['union', '/union-points.html', 'Điểm Đoàn sinh viên', 'award'],
-        ['rooms', '/rooms.html', 'Quản lý phòng', 'door'], ['reports', '/reports.html', 'Báo cáo – thống kê', 'chart']],
+        ['rooms', '/rooms.html', 'Quản lý phòng', 'door'], ['unitaccounts', '/unit-accounts.html', 'Tài khoản đơn vị', 'building'],
+        ['activitylog', '/activity-log.html', 'Nhật ký thao tác', 'history'], ['reports', '/reports.html', 'Báo cáo – thống kê', 'chart']],
       media: [['moderation', '/moderation.html', 'Duyệt sự kiện', 'shield'], ['assets', '/media-assets.html', 'Duyệt ấn phẩm', 'megaphone'], ['reports', '/reports.html', 'Báo cáo – thống kê', 'chart']],
     };
     const manage = MANAGE[r] ? `

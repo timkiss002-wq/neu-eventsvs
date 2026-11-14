@@ -23,6 +23,12 @@
   .as-preview { margin-top: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); display: grid; place-items: center; min-height: 220px; overflow: hidden; }
   .as-preview img, .as-preview video { max-width: 100%; max-height: 420px; display: block; }
   .as-preview iframe { width: 100%; height: 420px; border: 0; }
+  .as-hist-title { margin: 18px 0 8px; font-size: 15px; color: var(--navy); }
+  .as-hist { display: flex; flex-direction: column; gap: 10px; border-left: 2px solid var(--line); padding-left: 14px; }
+  .as-h { position: relative; font-size: 14.5px; }
+  .as-h i { position: absolute; left: -20px; top: 5px; width: 10px; height: 10px; border-radius: 50%; background: #9db4d8; }
+  .as-h.green i { background: #1f9d55; } .as-h.red i { background: #d64545; }
+  .as-h b { display: block; color: var(--ink); } .as-h small { color: var(--muted); } .as-h p { margin-top: 4px; color: var(--text); }
   .as-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; margin-top: 14px; font-size: 15px; }
   .as-meta dt { font-size: 13.5px; text-transform: uppercase; letter-spacing: .3px; color: var(--muted); margin-bottom: 4px; }
   .as-meta dd { color: var(--ink); }

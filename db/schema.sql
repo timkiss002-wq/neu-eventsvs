@@ -118,7 +118,8 @@ CREATE TABLE IF NOT EXISTS event_files (
   mime           TEXT,
   size           INTEGER,
   uploaded_by    INTEGER REFERENCES users(id),
-  uploaded_at    TEXT NOT NULL
+  uploaded_at    TEXT NOT NULL,
+  kind           TEXT NOT NULL DEFAULT 'plan'     -- plan: kế hoạch tổ chức | room: giấy đăng ký phòng
 );
 
 -- Đăng ký tham gia + kết quả điểm danh
@@ -136,6 +137,8 @@ CREATE TABLE IF NOT EXISTS registrations (
   checked_out_at TEXT,                            -- thời điểm check-out (hoàn thành)
   checkout_method TEXT,                           -- code | qr | manual
   points_awarded INTEGER,                         -- điểm hoạt động đã được duyệt
+  contact_email  TEXT,                            -- thông tin liên hệ sinh viên nhập khi đăng ký
+  contact_phone  TEXT,
   UNIQUE (event_id, user_id)
 );
 

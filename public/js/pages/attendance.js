@@ -202,7 +202,7 @@
       </div>`;
 
     const rows = d.rows.length ? d.rows.map((r) => `<tr>
-        <td class="tbl-name"><b>${esc(r.full_name)}</b><small>${esc(r.class_name || '')}</small></td>
+        <td class="tbl-name"><b>${esc(r.full_name)}</b><small>${esc([r.class_name, r.contact_phone].filter(Boolean).join(' • '))}</small>${r.contact_email ? `<small>${esc(r.contact_email)}</small>` : ''}</td>
         <td>${esc(r.student_code)}</td>
         <td><span class="tag ${STATE[r.state][1]}">${STATE[r.state][0]}</span>${r.points_awarded != null ? `<small class="cell-sub">+${r.points_awarded} điểm HĐ</small>` : ''}</td>
         <td>${r.checked_in_at ? `${fmtTime(r.checked_in_at)}<small class="cell-sub">${HOW[r.check_method] || ''}</small>` : '—'}</td>

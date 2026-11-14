@@ -49,28 +49,31 @@ Tài khoản cán bộ / đơn vị dùng email đuôi `@neu.edu.vn`, do Quản 
 
 **Khách (không cần đăng nhập)**
 - Người ngoài Trường xem được danh sách, lịch tháng và chi tiết các sự kiện đã công khai (`/events.html`, liên kết “Xem các sự kiện của Trường” ở trang đăng nhập); ấn phẩm đã duyệt hiển thị, kế hoạch tổ chức thì không.
-- Muốn đăng ký tham gia phải đăng nhập bằng tài khoản sinh viên NEU (nút “Đăng nhập để đăng ký” đưa về đúng sự kiện sau khi đăng nhập).
+- Khách **chỉ xem**: không đăng ký, điểm danh, đánh giá hay thao tác nào khác (máy chủ trả lỗi 401 nếu gọi API khi chưa đăng nhập). Muốn đăng ký phải đăng nhập bằng tài khoản sinh viên NEU (nút “Đăng nhập để đăng ký” đưa về đúng sự kiện sau khi đăng nhập).
 
 **Sinh viên**
-- Khám phá, đăng ký / hủy đăng ký sự kiện, check-in / check-out bằng mã hoặc QR, đánh giá (có ẩn danh).
+- Khám phá, đăng ký sự kiện **kèm thông tin liên hệ (email, số điện thoại)**, hủy đăng ký, check-in / check-out bằng mã hoặc QR động (chỉ khi dùng mạng của Trường), đánh giá (có ẩn danh).
 - Theo dõi *Đã đăng ký* và **điểm Đoàn** (gồm điểm từ sự kiện và điểm Văn phòng Đoàn điều chỉnh) theo học kỳ.
 
 **Ban tổ chức**
 - Tạo / sửa hồ sơ sự kiện, **chọn phòng** trong danh mục do Văn phòng Đoàn quản lý (hoặc địa điểm khác); hệ thống chặn quá sức chứa và trùng lịch phòng.
-- **Nộp hồ sơ = kế hoạch tổ chức (file) + ấn phẩm truyền thông** (banner, poster…), thêm ngay trong form; thiếu một trong hai thì không nộp được. Theo dõi tiến độ bước 1 / bước 2.
+- **Nộp hồ sơ = kế hoạch tổ chức (file) + giấy đăng ký phòng (file) + ấn phẩm truyền thông** (banner, poster…), thêm ngay trong form; thiếu một trong ba thì không nộp được. Theo dõi tiến độ bước 1 / bước 2.
 - **Ấn phẩm truyền thông**: xem trạng thái, xóa ấn phẩm chưa duyệt, gửi bản chỉnh sửa khi bị từ chối, gửi ấn phẩm bổ sung sau khi sự kiện công khai.
-- Điểm danh (mở phiên check-in/check-out, QR, sửa thủ công có lý do), xuất Excel, **gửi danh sách hoàn thành cho Văn phòng Đoàn cộng điểm**, xem đánh giá, báo cáo của đơn vị.
+- Điểm danh (mở phiên check-in/check-out, QR, sửa thủ công có lý do), danh sách kèm email/SĐT liên hệ của sinh viên, xuất Excel, **gửi danh sách hoàn thành cho Văn phòng Đoàn cộng điểm**, xem đánh giá, báo cáo của đơn vị.
 
 **Văn phòng Đoàn**
 - **Duyệt sự kiện – bước 1**: kế hoạch tổ chức, phòng/địa điểm (cảnh báo sức chứa, trùng lịch), **cấp chương trình & cấp điểm Đoàn**, hồ sơ và kinh phí. Duyệt xong hồ sơ chuyển sang Phòng Truyền thông.
 - **Quản lý phòng**: thêm / sửa phòng, tạm ngưng (bắt buộc lý do), lịch sử dụng phòng.
 - **Duyệt điểm Đoàn**: duyệt / từ chối danh sách sinh viên hoàn thành do BTC gửi → cộng điểm.
 - **Điểm Đoàn sinh viên**: bảng điểm theo học kỳ / lớp, **lịch sử điểm từng sinh viên**, hoạt động chờ cộng điểm, **cộng / trừ điểm thủ công** (bắt buộc căn cứ), xuất Excel.
+- **Tài khoản đơn vị**: cấp tài khoản Ban tổ chức (email @neu.edu.vn, mật khẩu tạm hiển thị một lần), đổi email đăng nhập, đặt lại mật khẩu, khóa / mở khóa.
+- **Nhật ký thao tác**: tra cứu lịch sử thao tác theo nhóm, ngày, từ khóa.
 - Báo cáo thống kê toàn trường, xem đánh giá.
 
 **Phòng Truyền thông**
 - **Duyệt sự kiện – bước 2** (chỉ sau khi VP Đoàn đã duyệt): xem trước banner, poster nộp kèm hồ sơ; duyệt → các ấn phẩm được duyệt và **sự kiện được công khai**; từ chối → hồ sơ trả về BTC.
 - **Duyệt ấn phẩm bổ sung** cho sự kiện đã công khai (ảnh / PDF / video); ấn phẩm đã duyệt hiển thị trên trang chi tiết sự kiện.
+- **Lịch sử duyệt ấn phẩm**: các lần gửi, duyệt, từ chối (kèm lý do) của từng ấn phẩm, kể cả bản trước khi chỉnh sửa.
 - Báo cáo thống kê toàn trường, xem đánh giá.
 
 **Quản trị hệ thống** (giữ nguyên): tổng quan hệ thống, người dùng & phân quyền (5 vai trò, ma trận phân quyền 5 phân hệ), cấu hình hệ thống, an ninh & sao lưu dữ liệu.
@@ -80,7 +83,9 @@ Tài khoản cán bộ / đơn vị dùng email đuôi `@neu.edu.vn`, do Quản 
 ## 4. Quy tắc nghiệp vụ chính
 
 - Trạng thái hồ sơ: `draft → pending → approved | rejected`; `approved → cancelled`. Chỉ sửa được khi *Nháp* hoặc *Bị từ chối*.
-- **Điều kiện nộp:** hồ sơ có ít nhất 1 file kế hoạch tổ chức và ít nhất 1 ấn phẩm truyền thông chưa bị từ chối.
+- **Điều kiện nộp:** hồ sơ có ít nhất 1 file kế hoạch tổ chức, 1 file giấy đăng ký phòng và 1 ấn phẩm truyền thông chưa bị từ chối.
+- **Kiểm duyệt:** chỉ phê duyệt được khi đánh dấu đủ các tiêu chí bắt buộc; chưa đủ thì phải từ chối kèm lý do.
+- **Hủy sự kiện:** chỉ trước khi sự kiện bắt đầu (đang diễn ra hoặc đã kết thúc thì không hủy được); bắt buộc lý do, sinh viên đã đăng ký nhận thông báo.
 - **Duyệt tuần tự:** bước 1 Văn phòng Đoàn (duyệt + cấp điểm Đoàn) → bước 2 Phòng Truyền thông (duyệt ấn phẩm; không thể duyệt trước bước 1) → công khai. Bước nào từ chối (bắt buộc lý do ≥ 10 ký tự) → hồ sơ trả về BTC; nộp lại bắt đầu từ bước 1. Phòng Truyền thông chỉ nhận thông báo khi hồ sơ đến bước 2.
 - **Phòng:** quy mô sự kiện ≤ sức chứa phòng; không trùng giờ với sự kiện khác cùng phòng đã duyệt (hoặc đã được VP Đoàn chấp thuận). Kiểm tra khi BTC lưu hồ sơ và khi VP Đoàn chấp thuận. Phòng đang có sự kiện sắp tới không được tạm ngưng.
 - **Ấn phẩm:** chỉ ấn phẩm *Đã duyệt* được hiển thị công khai; ấn phẩm đã duyệt không xóa được.
@@ -90,6 +95,8 @@ Tài khoản cán bộ / đơn vị dùng email đuôi `@neu.edu.vn`, do Quản 
 ## 5. QR điểm danh bằng điện thoại
 
 Khi mở trang bằng `localhost`, mã QR tự dùng **địa chỉ LAN** của máy (in ra khi chạy `npm start`, dạng `http://192.168.x.x:3000`). Điện thoại kết nối **cùng Wi-Fi** quét QR → mở trang điểm danh, đăng nhập tài khoản sinh viên → tự xác nhận. Nếu Windows Firewall hỏi, chọn *Allow* cho Node.js.
+
+**Chỉ điểm danh bằng mạng của Trường:** máy chủ kiểm tra địa chỉ IP của thiết bị khi check-in/check-out; ngoài các dải mạng cấu hình thì báo lỗi. Quản trị hệ thống chỉnh tại *Cấu hình hệ thống → Sự kiện & điểm danh* (bật/tắt, dải IP). Mặc định là các dải mạng nội bộ (127.x, 10.x, 172.16–31.x, 192.168.x) để chạy demo trên localhost và điện thoại cùng Wi-Fi.
 
 **Chống điểm danh hộ:** mã QR và mã nhập tay là **mã động đổi mỗi 10 giây** (HMAC của khóa bí mật phiên + khung thời gian 10 giây; chấp nhận thêm khung liền trước để bù độ trễ, tức mã sống tối đa ~20 giây). Ảnh chụp QR hay link/mã gửi qua tin nhắn cho người không có mặt sẽ hết hạn, sinh viên phải quét mã đang trình chiếu. BTC bấm *Trình chiếu QR* để phóng to mã lên màn hình; mã tự làm mới, có thanh đếm ngược.
 

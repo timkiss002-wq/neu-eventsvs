@@ -133,6 +133,22 @@ router.post('/assets/:id/:decision', requireRole('media'), wrap((req, res) => {
   res.json({ ok: true });
 }));
 
+// Lịch sử duyệt ấn phẩm: mọi phiên bản cùng tên của sự kiện (bản bị từ chối → bản chỉnh sửa gửi lại), mỗi bản gồm lần gửi và kết quả duyệt
+router.get('/assets/:id/history', requireRole('organizer', 'media', 'doan'), wrap((req, res) => {
+  const a = q.get(`${SELECT} WHERE a.id = ?`, Number(req.params.id));
+  if (!a) fail(404, 'Không tìm thấy ấn phẩm.');
+  if (req.user.role === 'organizer' && !canManage(req.user, getEvent(a.event_id))) fail(403, 'Bạn không có quyền với ấn phẩm này.');
+  const versions = q.all(`${SELECT} WHERE a.event_id = ? AND lower(a.title) = lower(?) ORDER BY a.submitted_at, a.id`, a.event_id, a.title);
+  const items = [];
+  versions.forEach((v, i) => {
+    const label = versions.length > 1 ? `Bản ${i + 1}` : '';
+    items.push({ at: v.submitted_at, kind: 'submit', actor: v.submitter_name || v.unit_short, version: label, current: v.id === a.id, file: v.original_name });
+    if (v.reviewed_at) items.push({ at: v.reviewed_at, kind: v.status, actor: v.reviewer_name, note: v.review_note, version: label, current: v.id === a.id });
+  });
+  items.sort((x, y) => y.at.localeCompare(x.at));
+  res.json({ items });
+}));
+
 // Xem / tải file ấn phẩm (BTC của sự kiện, bộ phận duyệt; người khác chỉ xem ấn phẩm đã duyệt của sự kiện công khai)
 router.get('/assets/:id/file', wrap((req, res) => {
   const a = q.get('SELECT * FROM media_assets WHERE id = ?', Number(req.params.id));

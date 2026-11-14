@@ -49,7 +49,7 @@
     $('prep').innerHTML = bullets(ev.preparation) || '<p>Không yêu cầu chuẩn bị đặc biệt.</p>';
     renderAssets(ev);
     $('files').innerHTML = ev.files.map((f) => `<a class="file" href="/api/events/files/${f.id}/download">
-        <div>${icon('file')}<div style="min-width:0"><b>${esc(f.original_name)}</b><small>${fmtSize(f.size)} • tải lên ${fmtDate(f.uploaded_at)}</small></div></div>${icon('download')}</a>`).join('');
+        <div>${icon('file')}<div style="min-width:0"><b>${esc(f.original_name)}</b><small>${f.kind === 'room' ? 'Giấy đăng ký phòng • ' : ''}${fmtSize(f.size)} • tải lên ${fmtDate(f.uploaded_at)}</small></div></div>${icon('download')}</a>`).join('');
 
     // ----- Đánh giá -----
     if (ev.review_count || ev.my_review) {
@@ -146,9 +146,20 @@
 
   async function act(action, ev, b) {
     if (action === 'register') {
-      b.disabled = true;
+      // Bước nhập thông tin liên hệ (email, số điện thoại) trước khi ghi nhận đăng ký
+      let sug = { contact_email: user.email || '', contact_phone: user.phone || '' };
+      try { sug = await api('/api/events/contact/suggest'); } catch { /* dùng thông tin hồ sơ */ }
+      const r = await App.modal({
+        title: 'Đăng ký tham gia', okText: 'Xác nhận đăng ký',
+        desc: `Sự kiện <b>${esc(ev.title)}</b>. Ban tổ chức dùng thông tin dưới đây để liên hệ khi cần.`,
+        html: `<label class="label">Email liên hệ <span class="req">*</span></label>
+          <input class="inp" id="m-email" type="email" value="${esc(sug.contact_email)}" placeholder="VD: 11240123@st.neu.edu.vn">
+          <label class="label">Số điện thoại <span class="req">*</span></label>
+          <input class="inp" id="m-phone" type="tel" value="${esc(sug.contact_phone)}" placeholder="VD: 0912345678">`,
+        onOk: (root) => api(`/api/events/${ev.id}/register`, { method: 'POST', body: { contact_email: root.querySelector('#m-email').value, contact_phone: root.querySelector('#m-phone').value } }),
+      });
+      if (!r) return;
       try {
-        const r = await api(`/api/events/${ev.id}/register`, { method: 'POST' });
         load();
         App.modal({
           title: 'Đăng ký thành công', cancelText: 'Đóng', okText: 'Thêm vào Google Calendar',
@@ -204,7 +215,7 @@
     if (['draft', 'rejected'].includes(ev.status)) acts.push(`<a class="btn-outline btn-sm" href="/event-form.html?id=${ev.id}">${icon('edit')}Chỉnh sửa</a>`);
     if (ev.status === 'approved') acts.push(`<a class="btn-outline btn-sm" href="/attendance.html?event=${ev.id}">${icon('scan')}Điểm danh</a>`);
     if (ev.review_count) acts.push(`<a class="btn-outline btn-sm" href="/reviews.html?event=${ev.id}">${icon('chat')}Đánh giá</a>`);
-    if (ev.status === 'approved' && ev.phase !== 'ended') acts.push(`<button class="btn-danger btn-sm" id="cancelEv">${icon('x')}Hủy sự kiện</button>`);
+    if (ev.status === 'approved' && ev.phase === 'upcoming') acts.push(`<button class="btn-danger btn-sm" id="cancelEv">${icon('x')}Hủy sự kiện</button>`);
     acts.push(`<a class="btn-outline btn-sm" href="/media-assets.html">${icon('image')}Ấn phẩm</a>`);
     $('managerBar').innerHTML = `<div class="mbar"><span>Bạn đang xem với quyền quản lý • ${tag(ev.status)} ${ev.status === 'approved' ? tag(ev.phase) : ''}</span><div class="acts">${acts.join('')}</div></div>${['pending', 'rejected'].includes(ev.status) ? App.approvalHtml(ev) : ''}`;
     const c = $('cancelEv');

@@ -104,7 +104,7 @@
     const mine = myTurn(ev);
     const myChecks = new Set(ev[`${side}_checks`] || []);
 
-    const files = `<h4 class="section-title">Kế hoạch tổ chức & tài liệu (${ev.files.length})</h4>` + (ev.files.length ? `<div class="files">${ev.files.map((f) => `<div class="file"><div>${icon('file')}<span>${esc(f.original_name)} • ${fmtSize(f.size)}</span></div><a href="/api/events/files/${f.id}/download" aria-label="Tải xuống">${icon('download')}</a></div>`).join('')}</div>`
+    const files = `<h4 class="section-title">Kế hoạch tổ chức & tài liệu (${ev.files.length})</h4>` + (ev.files.length ? `<div class="files">${ev.files.map((f) => `<div class="file"><div>${icon('file')}<span>${f.kind === 'room' ? '<b>Giấy đăng ký phòng:</b> ' : ''}${esc(f.original_name)} • ${fmtSize(f.size)}</span></div><a href="/api/events/files/${f.id}/download" aria-label="Tải xuống">${icon('download')}</a></div>`).join('')}</div>`
       : '<p class="copy" style="margin-top:12px">Hồ sơ không có file kế hoạch đính kèm.</p>');
 
     const checkHtml = checks.map((c) => mine
@@ -190,7 +190,7 @@
         const note = $('comment').value.trim();
         $('decAlert').innerHTML = '';
         if (!approve && note.length < 10) { $('decAlert').innerHTML = '<div class="alert err">Vui lòng nhập lý do từ chối (tối thiểu 10 ký tự) để ban tổ chức bổ sung.</div>'; $('comment').focus(); return; }
-        if (approve && getChecks().length < checks.length && !(await confirmBox('Chưa đủ tiêu chí', 'Một số tiêu chí chưa được đánh dấu. Vẫn duyệt hồ sơ?', 'Vẫn duyệt'))) return;
+        if (approve && getChecks().length < checks.length) { $('decAlert').innerHTML = '<div class="alert err">Chưa đạt đủ tiêu chí bắt buộc: đánh dấu đủ các tiêu chí kiểm duyệt trước khi phê duyệt, hoặc từ chối hồ sơ kèm lý do.</div>'; return; }
         if (!approve && !(await confirmBox('Từ chối hồ sơ?', 'Hồ sơ sẽ được trả về Ban tổ chức kèm lý do để bổ sung; khi nộp lại, hồ sơ bắt đầu lại từ bước 1 (Văn phòng Đoàn).', 'Từ chối', true))) return;
         const body = { note, checks: getChecks() };
         if (side === 'doan') { body.level = $('dLevel').value; body.points = $('dPoints').value; }

@@ -409,6 +409,10 @@ function seed() {
     q.run('INSERT INTO attendance_sessions (event_id,code,opened_by,opened_at,expires_at,closed_at) VALUES (?,?,?,?,?,NULL)',
       evs.ai.id, require('crypto').randomBytes(12).toString('hex'), org.cntt, shift(aiStart, -15), aiEnd);
 
+    // Thông tin liên hệ sinh viên nhập khi đăng ký (dữ liệu mẫu: lấy email tài khoản, số điện thoại sinh ngẫu nhiên theo người dùng)
+    q.run(`UPDATE registrations SET contact_email = (SELECT email FROM users WHERE users.id = registrations.user_id),
+             contact_phone = COALESCE((SELECT phone FROM users WHERE users.id = registrations.user_id), '09' || substr('0000000' || ((user_id * 7919 + 1234567) % 100000000), -8))`);
+
     // ---------- Thông báo & lịch sử ----------
     const n = (uid, type, title, body, link, t) =>
       q.run('INSERT INTO notifications (user_id,type,title,body,link,is_read,created_at) VALUES (?,?,?,?,?,?,?)', uid, type, title, body, link, 0, t);
@@ -501,6 +505,11 @@ function seed() {
       fs.writeFileSync(path.join(UP, stored), buf);
       q.run('INSERT INTO event_files (event_id,original_name,stored_name,mime,size,uploaded_by,uploaded_at) VALUES (?,?,?,?,?,?,?)',
         e.id, `Ke-hoach-to-chuc-${e.code}.pdf`, stored, 'application/pdf', buf.length, e.by, e.submitted_at || shift(e.start_at, -60 * 24 * 19));
+      // Giấy đăng ký phòng
+      const rbuf = pdf(`Giay dang ky phong - ${e.code}`); const rstored = `room-seed-${e.id}.pdf`;
+      fs.writeFileSync(path.join(UP, rstored), rbuf);
+      q.run("INSERT INTO event_files (event_id,original_name,stored_name,mime,size,uploaded_by,uploaded_at,kind) VALUES (?,?,?,?,?,?,?,'room')",
+        e.id, `Giay-dang-ky-phong-${e.code}.pdf`, rstored, 'application/pdf', rbuf.length, e.by, e.submitted_at || shift(e.start_at, -60 * 24 * 19));
     }
 
     // ---------- Điều chỉnh điểm Đoàn thủ công ----------

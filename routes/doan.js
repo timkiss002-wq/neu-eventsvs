@@ -1,11 +1,15 @@
 // Phân hệ Văn phòng Đoàn – quản lý điểm Đoàn:
 //  - Duyệt danh sách sinh viên hoàn thành do BTC gửi để cộng điểm Đoàn
 //  - Tra cứu điểm Đoàn từng sinh viên, lịch sử điểm, cộng / trừ điểm thủ công, xuất Excel
+//  - Quản lý tài khoản đơn vị (Ban tổ chức): cấp tài khoản, đổi email, đặt lại mật khẩu, khóa / mở khóa
+//  - Xem nhật ký thao tác của hệ thống
 // (Duyệt sự kiện: routes/moderation.js • Quản lý phòng: routes/rooms.js)
 const express = require('express');
+const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 const ExcelJS = require('exceljs');
 const { q } = require('../db/database');
-const { now, notify, audit, wrap, fail, termRange, termOf, termLabel } = require('../lib/util');
+const { now, notify, audit, wrap, fail, termRange, termOf, termLabel, isNeuEmail } = require('../lib/util');
 const { getEvent } = require('../lib/events');
 const { requireRole } = require('../middleware/auth');
 
@@ -177,6 +181,123 @@ router.get('/students-export', wrap(async (req, res) => {
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.setHeader('Content-Disposition', `attachment; filename="diem-doan-${term}.xlsx"`);
   await wb.xlsx.write(res); res.end();
+}));
+
+// ===================== TÀI KHOẢN ĐƠN VỊ (BAN TỔ CHỨC) =====================
+// Mật khẩu tạm 8 ký tự. Môi trường demo không có máy chủ email nên mật khẩu được hiển thị một lần cho Văn phòng Đoàn chuyển cho đơn vị.
+const tempPassword = () => {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  return Array.from(crypto.randomBytes(8), (b) => chars[b % chars.length]).join('');
+};
+const emailTaken = (email, exceptId = 0) => q.get('SELECT 1 FROM users WHERE lower(email) = ? AND id <> ?', email, exceptId);
+function nextUnitCode() {
+  // Mã tài khoản đơn vị theo dạng CBxxx (tiếp nối mã đã có)
+  const row = q.get("SELECT code FROM users WHERE code LIKE 'CB%' AND substr(code, 3) GLOB '[0-9]*' ORDER BY CAST(substr(code, 3) AS INTEGER) DESC LIMIT 1");
+  return `CB${String(row ? Number(row.code.slice(2)) + 1 : 1).padStart(3, '0')}`;
+}
+
+router.get('/accounts', wrap((req, res) => {
+  const { kw = '', status = '' } = req.query;
+  const at = now();
+  const where = ["u.role = 'organizer'"]; const params = [];
+  if (status === 'active') where.push('u.is_active = 1');
+  if (status === 'disabled') where.push('u.is_active = 0');
+  if (kw.trim()) {
+    const k = `%${kw.trim().toLowerCase()}%`;
+    where.push("(lower(u.full_name) LIKE ? OR lower(u.email) LIKE ? OR lower(u.code) LIKE ? OR lower(IFNULL(un.short_name,'')) LIKE ?)"); params.push(k, k, k, k);
+  }
+  const rows = q.all(`SELECT u.id, u.code, u.email, u.full_name, u.phone, u.is_active, u.locked_until, u.created_at, u.unit_id,
+                             un.name AS unit_name, un.short_name AS unit_short,
+                             (SELECT COUNT(*) FROM events e WHERE e.unit_id = u.unit_id AND e.status <> 'draft') AS event_count,
+                             (SELECT MAX(created_at) FROM audit_logs a WHERE a.actor_id = u.id AND a.action = 'auth.login') AS last_login
+                      FROM users u LEFT JOIN units un ON un.id = u.unit_id WHERE ${where.join(' AND ')} ORDER BY u.is_active DESC, u.full_name`, ...params)
+    .map((u) => ({ ...u, temp_locked: !!(u.locked_until && u.locked_until > at) }));
+  const counts = q.get("SELECT COUNT(*) total, SUM(is_active = 1) active, SUM(is_active = 0) disabled FROM users WHERE role = 'organizer'");
+  const units = q.all('SELECT id, name, short_name FROM units ORDER BY name');
+  res.json({ rows, counts, units });
+}));
+
+// Cấp tài khoản Ban tổ chức (email bắt buộc đuôi @neu.edu.vn, chưa tồn tại)
+router.post('/accounts', wrap((req, res) => {
+  const b = req.body || {};
+  const email = String(b.email || '').trim().toLowerCase();
+  if (!isNeuEmail(email)) fail(400, 'Email tài khoản đơn vị phải có đuôi @neu.edu.vn.');
+  if (emailTaken(email)) fail(409, 'Email đã được dùng bởi tài khoản khác, vui lòng nhập email khác.');
+  const password = tempPassword();
+  const at = now();
+  const out = q.tx(() => {
+    let unitId = Number(b.unit_id) || null;
+    if (!unitId) {
+      const name = String(b.unit_name || '').trim();
+      const short = String(b.unit_short || '').trim() || name;
+      if (name.length < 3) fail(400, 'Vui lòng chọn đơn vị hoặc nhập tên đơn vị mới.');
+      if (q.get('SELECT 1 FROM units WHERE lower(name) = lower(?)', name)) fail(409, 'Đơn vị đã tồn tại, hãy chọn trong danh sách.');
+      unitId = q.run('INSERT INTO units (name, short_name) VALUES (?,?)', name, short).id;
+    }
+    const unit = q.get('SELECT * FROM units WHERE id = ?', unitId);
+    if (!unit) fail(404, 'Không tìm thấy đơn vị.');
+    const code = nextUnitCode();
+    const uid = q.run(`INSERT INTO users (code,email,password_hash,full_name,role,unit_id,phone,created_at) VALUES (?,?,?,?,'organizer',?,?,?)`,
+      code, email, bcrypt.hashSync(password, 8), unit.name, unitId, String(b.phone || '').trim() || null, at).id;
+    audit(req.user.id, 'account.create', 'user', uid, `Văn phòng Đoàn cấp tài khoản Ban tổ chức: ${unit.name} (${email}, mã ${code})`);
+    notify(uid, { type: 'account', title: 'Tài khoản Ban tổ chức đã được cấp', body: 'Văn phòng Đoàn đã cấp tài khoản cho đơn vị. Hãy đổi mật khẩu tại Hồ sơ cá nhân.', link: '/profile.html' });
+    return { id: uid, code, unit: unit.name };
+  });
+  res.json({ ok: true, ...out, email, password });
+}));
+
+// Đổi email đăng nhập • đặt lại mật khẩu • khóa / mở khóa (chỉ áp dụng cho tài khoản Ban tổ chức)
+router.put('/accounts/:id', wrap((req, res) => {
+  const u = q.get("SELECT * FROM users WHERE id = ? AND role = 'organizer'", Number(req.params.id));
+  if (!u) fail(404, 'Không tìm thấy tài khoản Ban tổ chức.');
+  const b = req.body || {};
+  let password = null, action = 'account.update', detail = '';
+  if (b.email !== undefined) {
+    const email = String(b.email).trim().toLowerCase();
+    if (!isNeuEmail(email)) fail(400, 'Email tài khoản đơn vị phải có đuôi @neu.edu.vn.');
+    if (emailTaken(email, u.id)) fail(409, 'Email đã được dùng bởi tài khoản khác, vui lòng nhập email khác.');
+    if (email === u.email) fail(400, 'Email mới trùng email hiện tại.');
+    q.run('UPDATE users SET email = ? WHERE id = ?', email, u.id);
+    detail = `đổi email đăng nhập ${u.email} → ${email}`;
+    notify(u.id, { type: 'account', title: 'Email đăng nhập đã thay đổi', body: `Email đăng nhập mới của đơn vị: ${email}.`, link: '/profile.html' });
+  } else if (b.action === 'reset_password') {
+    password = tempPassword();
+    q.run('UPDATE users SET password_hash = ?, failed_logins = 0, locked_until = NULL WHERE id = ?', bcrypt.hashSync(password, 8), u.id);
+    detail = 'đặt lại mật khẩu';
+  } else if (b.action === 'lock' || b.action === 'unlock') {
+    const active = b.action === 'unlock' ? 1 : 0;
+    if (!!u.is_active === !!active) fail(400, active ? 'Tài khoản đang hoạt động.' : 'Tài khoản đã bị khóa.');
+    q.run('UPDATE users SET is_active = ?, failed_logins = 0, locked_until = NULL WHERE id = ?', active, u.id);
+    action = active ? 'account.enable' : 'account.disable';
+    detail = active ? 'mở khóa tài khoản' : 'khóa tài khoản';
+  } else fail(400, 'Không có thay đổi.');
+  audit(req.user.id, action, 'user', u.id, `Văn phòng Đoàn cập nhật tài khoản ${u.full_name} (${u.code}): ${detail}`, String(b.reason || '').trim());
+  res.json({ ok: true, password, email: b.email !== undefined ? String(b.email).trim().toLowerCase() : u.email });
+}));
+
+// ===================== NHẬT KÝ THAO TÁC =====================
+const LOG_GROUP = {
+  event: "a.action LIKE 'event.%' OR a.action LIKE 'moderation.%' OR a.action LIKE 'asset.%'",
+  attendance: "a.action LIKE 'attendance.%' OR a.action LIKE 'registration.%'",
+  points: "a.action LIKE 'points.%'",
+  account: "a.action LIKE 'account.%' OR a.action LIKE 'auth.%' OR a.action LIKE 'profile.%'",
+};
+router.get('/logs', wrap((req, res) => {
+  const size = Math.min(100, Math.max(10, Number(req.query.size) || 20));
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const where = ['1=1']; const params = [];
+  if (LOG_GROUP[req.query.group]) where.push(`(${LOG_GROUP[req.query.group]})`);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(req.query.from || '')) { where.push('a.created_at >= ?'); params.push(`${req.query.from} 00:00:00`); }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(req.query.to || '')) { where.push('a.created_at <= ?'); params.push(`${req.query.to} 23:59:59`); }
+  if (String(req.query.kw || '').trim()) {
+    const k = `%${String(req.query.kw).trim().toLowerCase()}%`;
+    where.push("(lower(IFNULL(a.detail,'')) LIKE ? OR lower(IFNULL(u.full_name,'')) LIKE ? OR lower(IFNULL(u.code,'')) LIKE ?)"); params.push(k, k, k);
+  }
+  const base = `FROM audit_logs a LEFT JOIN users u ON u.id = a.actor_id WHERE ${where.join(' AND ')}`;
+  const total = q.get(`SELECT COUNT(*) n ${base}`, ...params).n;
+  const rows = q.all(`SELECT a.id, a.action, a.detail, a.reason, a.created_at, u.full_name AS actor_name, u.code AS actor_code, u.role AS actor_role
+                      ${base} ORDER BY a.id DESC LIMIT ? OFFSET ?`, ...params, size, (page - 1) * size);
+  res.json({ rows, total, page, size });
 }));
 
 module.exports = router;

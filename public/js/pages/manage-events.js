@@ -37,7 +37,7 @@
     if (e.status === 'approved') {
       a.push(`<a class="link" href="/attendance.html?event=${e.id}">Danh sách & điểm danh</a>`);
       if (e.review_count) a.push(`<a class="link" href="/reviews.html?event=${e.id}">Đánh giá</a>`);
-      if (e.phase !== 'ended') a.push(`<a class="link danger" data-act="cancel" data-id="${e.id}">Hủy</a>`);
+      if (e.phase === 'upcoming') a.push(`<a class="link danger" data-act="cancel" data-id="${e.id}">Hủy</a>`);
     }
     if (e.status === 'draft') a.push(`<a class="link danger" data-act="delete" data-id="${e.id}">Xóa</a>`);
     return a.join('');
@@ -65,7 +65,7 @@
   async function act(action, id, e) {
     try {
       if (action === 'submit') {
-        if (!(await confirmBox('Nộp hồ sơ?', `<b>${esc(e.title)}</b> (kế hoạch + ấn phẩm) sẽ được nộp tới Văn phòng Đoàn duyệt và cấp điểm Đoàn, sau đó Phòng Truyền thông duyệt ấn phẩm. Sự kiện được công khai sau bước cuối; trong thời gian chờ duyệt, hồ sơ không thể chỉnh sửa.`, 'Nộp hồ sơ'))) return;
+        if (!(await confirmBox('Nộp hồ sơ?', `<b>${esc(e.title)}</b> (kế hoạch, giấy đăng ký phòng + ấn phẩm) sẽ được nộp tới Văn phòng Đoàn duyệt và cấp điểm Đoàn, sau đó Phòng Truyền thông duyệt ấn phẩm. Sự kiện được công khai sau bước cuối; trong thời gian chờ duyệt, hồ sơ không thể chỉnh sửa.`, 'Nộp hồ sơ'))) return;
         await api(`/api/events/${id}/submit`, { method: 'POST' }); toast('Đã nộp hồ sơ – chờ Văn phòng Đoàn duyệt.', 'ok');
       }
       if (action === 'withdraw') {

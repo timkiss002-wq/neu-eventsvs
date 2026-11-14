@@ -32,14 +32,14 @@ const upload = multer({
     destination: UPLOAD_DIR,
     filename: (_req, file, cb) => cb(null, `${Date.now()}-${crypto.randomBytes(4).toString('hex')}${path.extname(file.originalname).toLowerCase()}`),
   }),
-  limits: { fileSize: 10 * 1024 * 1024, files: 6 },
+  limits: { fileSize: 10 * 1024 * 1024, files: 9 },
   defParamCharset: 'utf8',
   fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
     if (file.fieldname === 'cover') return cb(null, ['.jpg', '.jpeg', '.png', '.webp', '.gif'].includes(ext));
     cb(null, ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.jpg', '.jpeg', '.png', '.zip'].includes(ext));
   },
-}).fields([{ name: 'cover', maxCount: 1 }, { name: 'files', maxCount: 5 }]);
+}).fields([{ name: 'cover', maxCount: 1 }, { name: 'files', maxCount: 5 }, { name: 'room_files', maxCount: 3 }]);
 
 const withUpload = (req, res, next) => upload(req, res, (err) => {
   if (!err) return next();
@@ -73,7 +73,7 @@ function eventExtras(ev, user) {
   const guest = !user;
   const agenda = q.all('SELECT id, time_label, title, description FROM event_agenda WHERE event_id = ? ORDER BY sort_order, id', ev.id);
   // Kế hoạch tổ chức (tệp đính kèm) chỉ dành cho người dùng đã đăng nhập
-  const files = guest ? [] : q.all('SELECT id, original_name, mime, size, uploaded_at FROM event_files WHERE event_id = ? ORDER BY id', ev.id);
+  const files = guest ? [] : q.all("SELECT id, kind, original_name, mime, size, uploaded_at FROM event_files WHERE event_id = ? ORDER BY kind = 'room', id", ev.id);
   const session = activeSession(ev.id);
   // Ấn phẩm truyền thông: BTC & bộ phận duyệt thấy tất cả; người xem khác chỉ thấy ấn phẩm đã được duyệt
   const insider = canManage(user, ev) || isReviewer(user);
@@ -161,7 +161,23 @@ router.get('/:id/history', wrap((req, res) => {
 }));
 
 // ========== ĐĂNG KÝ / HỦY ĐĂNG KÝ (sinh viên) ==========
+// Thông tin liên hệ khi đăng ký: email + số điện thoại (bắt buộc)
+function readContact(body) {
+  const email = String(body?.contact_email || '').trim().toLowerCase();
+  const phone = String(body?.contact_phone || '').replace(/[\s.-]/g, '');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail(400, 'Email liên hệ không hợp lệ.');
+  if (!/^(0|\+84)\d{9,10}$/.test(phone)) fail(400, 'Số điện thoại liên hệ không hợp lệ (VD: 0912345678).');
+  return { email, phone };
+}
+
+// Gợi ý thông tin liên hệ: lần đăng ký gần nhất, nếu chưa có thì lấy từ hồ sơ
+router.get('/contact/suggest', requireRole('student'), (req, res) => {
+  const last = q.get("SELECT contact_email, contact_phone FROM registrations WHERE user_id = ? AND contact_email IS NOT NULL ORDER BY registered_at DESC LIMIT 1", req.user.id);
+  res.json({ contact_email: last?.contact_email || req.user.email || '', contact_phone: last?.contact_phone || req.user.phone || '' });
+});
+
 router.post('/:id/register', requireRole('student'), wrap((req, res) => {
+  const contact = readContact(req.body);
   const result = q.tx(() => {
     const ev = getEvent(Number(req.params.id));
     if (!ev || ev.status !== 'approved') fail(404, 'Sự kiện không tồn tại hoặc chưa mở đăng ký.');
@@ -174,10 +190,12 @@ router.post('/:id/register', requireRole('student'), wrap((req, res) => {
     let regId, code;
     if (existing) {
       regId = existing.id; code = existing.code;
-      q.run(`UPDATE registrations SET status='registered', registered_at=?, cancelled_at=NULL, attendance='pending', checked_in_at=NULL, check_method=NULL WHERE id=?`, at, regId);
+      q.run(`UPDATE registrations SET status='registered', registered_at=?, cancelled_at=NULL, attendance='pending', checked_in_at=NULL, check_method=NULL,
+             contact_email=?, contact_phone=? WHERE id=?`, at, contact.email, contact.phone, regId);
     } else {
       code = regCode(ev);
-      regId = q.run('INSERT INTO registrations (event_id,user_id,code,status,registered_at) VALUES (?,?,?,?,?)', ev.id, req.user.id, code, 'registered', at).id;
+      regId = q.run('INSERT INTO registrations (event_id,user_id,code,status,registered_at,contact_email,contact_phone) VALUES (?,?,?,?,?,?,?)',
+        ev.id, req.user.id, code, 'registered', at, contact.email, contact.phone).id;
     }
     audit(req.user.id, 'registration.create', 'registration', regId, `Đăng ký "${ev.title}"`);
     notify(req.user.id, { type: 'registration', title: 'Đăng ký thành công', body: `Bạn đã đăng ký "${ev.title}". Mã đăng ký: ${code}.`, link: `/event-detail.html?id=${ev.id}` });
@@ -261,9 +279,12 @@ function saveUploads(req, eventId) {
     if (old) fs.rm(path.join(UPLOAD_DIR, path.basename(old)), { force: true }, () => {});
     q.run('UPDATE events SET cover_image = ? WHERE id = ?', `/uploads/${files.cover[0].filename}`, eventId);
   }
-  for (const f of files.files || []) {
-    q.run('INSERT INTO event_files (event_id,original_name,stored_name,mime,size,uploaded_by,uploaded_at) VALUES (?,?,?,?,?,?,?)',
-      eventId, f.originalname, f.filename, f.mimetype, f.size, req.user.id, now());
+  // files: kế hoạch tổ chức (kind = plan) • room_files: giấy đăng ký phòng (kind = room)
+  for (const [field, kind] of [['files', 'plan'], ['room_files', 'room']]) {
+    for (const f of files[field] || []) {
+      q.run('INSERT INTO event_files (event_id,original_name,stored_name,mime,size,uploaded_by,uploaded_at,kind) VALUES (?,?,?,?,?,?,?,?)',
+        eventId, f.originalname, f.filename, f.mimetype, f.size, req.user.id, now(), kind);
+    }
   }
 }
 
@@ -276,12 +297,13 @@ function removeFiles(ids, eventId) {
   }
 }
 
-// Điều kiện nộp hồ sơ: có kế hoạch tổ chức (file đính kèm) và ít nhất một ấn phẩm truyền thông chưa bị từ chối
+// Điều kiện nộp hồ sơ: có kế hoạch tổ chức, giấy đăng ký phòng và ít nhất một ấn phẩm truyền thông chưa bị từ chối
 function mustBeReady(eventId) {
   const miss = [];
-  if (!q.get('SELECT 1 FROM event_files WHERE event_id = ?', eventId)) miss.push('kế hoạch tổ chức (file PDF/Word đính kèm)');
+  if (!q.get("SELECT 1 FROM event_files WHERE event_id = ? AND kind = 'plan'", eventId)) miss.push('kế hoạch tổ chức (file PDF/Word đính kèm)');
+  if (!q.get("SELECT 1 FROM event_files WHERE event_id = ? AND kind = 'room'", eventId)) miss.push('giấy đăng ký phòng');
   if (!q.get("SELECT 1 FROM media_assets WHERE event_id = ? AND status <> 'rejected'", eventId)) miss.push('ít nhất một ấn phẩm truyền thông (banner, poster...)');
-  if (miss.length) fail(400, `Hồ sơ chưa đủ để nộp – cần ${miss.join(' và ')}. Hồ sơ đã được lưu nháp.`);
+  if (miss.length) fail(400, `Hồ sơ chưa đủ để nộp – cần ${miss.length > 1 ? `${miss.slice(0, -1).join(', ')} và ${miss[miss.length - 1]}` : miss[0]}. Hồ sơ đã được lưu nháp.`);
 }
 
 // Bước 1 → 2: thông báo cho Văn phòng Đoàn trường khi có hồ sơ mới
@@ -375,7 +397,7 @@ router.post('/:id/cancel', requireRole('organizer'), wrap((req, res) => {
   mustManage(req.user, ev);
   const reason = String(req.body?.reason || '').trim();
   if (ev.status !== 'approved') fail(400, 'Chỉ hủy được sự kiện đã được duyệt.');
-  if (ev.end_at < now()) fail(400, 'Sự kiện đã kết thúc, không thể hủy.');
+  if (ev.start_at <= now()) fail(400, ev.end_at < now() ? 'Sự kiện đã kết thúc, không thể hủy.' : 'Sự kiện đang diễn ra, không thể hủy.');
   if (reason.length < 5) fail(400, 'Vui lòng nhập lý do hủy (tối thiểu 5 ký tự).');
   const regs = q.all("SELECT user_id FROM registrations WHERE event_id = ? AND status = 'registered'", ev.id);
   q.tx(() => {

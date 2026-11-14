@@ -19,6 +19,9 @@ const NEW_COLUMNS = [
   ['reviews', 'is_anonymous', 'INTEGER NOT NULL DEFAULT 0'],
   ['users', 'failed_logins', 'INTEGER NOT NULL DEFAULT 0'],
   ['users', 'locked_until', 'TEXT'],
+  ['registrations', 'contact_email', 'TEXT'],
+  ['registrations', 'contact_phone', 'TEXT'],
+  ['event_files', 'kind', "TEXT NOT NULL DEFAULT 'plan'"],
 ];
 
 function migrate(d) {

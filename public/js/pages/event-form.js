@@ -96,7 +96,9 @@
     F('room_id').value = ev.room_id && rooms.find((r) => r.id === ev.room_id) ? String(ev.room_id) : 'other'; roomChanged();
     ev.agenda.forEach(addAgenda);
     if (ev.cover_image) setCover(ev.cover_image);
-    $('existingFiles').innerHTML = ev.files.map((f) => `<div class="ex-file" data-f="${f.id}"><span>${icon('file', 'style="width:13px;height:13px;display:inline;vertical-align:-2px"')} ${esc(f.original_name)} • ${fmtSize(f.size)}</span><a class="link danger" data-rm="${f.id}">Xóa</a></div>`).join('');
+    const fileRow = (f) => `<div class="ex-file" data-f="${f.id}" data-kind="${f.kind || 'plan'}"><span>${icon('file', 'style="width:13px;height:13px;display:inline;vertical-align:-2px"')} ${esc(f.original_name)} • ${fmtSize(f.size)}</span><a class="link danger" data-rm="${f.id}">Xóa</a></div>`;
+    $('existingFiles').innerHTML = ev.files.filter((f) => f.kind !== 'room').map(fileRow).join('');
+    $('existingRoomFiles').innerHTML = ev.files.filter((f) => f.kind === 'room').map(fileRow).join('');
     document.querySelectorAll('[data-rm]').forEach((a) => a.addEventListener('click', () => {
       const fid = Number(a.dataset.rm); const row = a.closest('.ex-file');
       if (removeFiles.has(fid)) { removeFiles.delete(fid); row.classList.remove('rm'); a.textContent = 'Xóa'; } else { removeFiles.add(fid); row.classList.add('rm'); a.textContent = 'Hoàn tác'; }
@@ -125,13 +127,14 @@
     if (newAssets().some((a) => !a.file || a.title.length < 3)) return 'Mỗi ấn phẩm cần có tên (tối thiểu 3 ký tự) và file.';
     return null;
   }
-  // Điều kiện nộp: có kế hoạch tổ chức + ít nhất 1 ấn phẩm (máy chủ kiểm tra lại)
+  // Điều kiện nộp: có kế hoạch tổ chức + giấy đăng ký phòng + ít nhất 1 ấn phẩm (máy chủ kiểm tra lại)
   function readyToSubmit() {
     const miss = [];
-    const keptFiles = document.querySelectorAll('.ex-file').length - removeFiles.size;
-    if (keptFiles + $('files').files.length < 1) miss.push('file kế hoạch tổ chức');
+    const kept = (kind) => [...document.querySelectorAll(`.ex-file[data-kind="${kind}"]`)].filter((r) => !removeFiles.has(Number(r.dataset.f))).length;
+    if (kept('plan') + $('files').files.length < 1) miss.push('file kế hoạch tổ chức');
+    if (kept('room') + $('roomFiles').files.length < 1) miss.push('giấy đăng ký phòng');
     if (existingAssets.filter((a) => a.status !== 'rejected').length + newAssets().length < 1) miss.push('ít nhất một ấn phẩm truyền thông');
-    return miss.length ? `Để nộp hồ sơ cần có ${miss.join(' và ')}. Bạn có thể bấm “Lưu nháp” để lưu tạm.` : null;
+    return miss.length ? `Để nộp hồ sơ cần có ${miss.length > 1 ? `${miss.slice(0, -1).join(', ')} và ${miss[miss.length - 1]}` : miss[0]}. Bạn có thể bấm “Lưu nháp” để lưu tạm.` : null;
   }
 
   async function save(submit) {
@@ -148,6 +151,7 @@
     fd.append('submit', '0'); // lưu trước, tải ấn phẩm, rồi mới nộp
     if ($('cover').files[0]) fd.append('cover', $('cover').files[0]);
     for (const f of $('files').files) fd.append('files', f);
+    for (const f of $('roomFiles').files) fd.append('room_files', f);
     [$('submitBtn'), $('draftBtn')].forEach((b) => { b.disabled = true; });
     let savedId = id, saved = false;
     try {
