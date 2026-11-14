@@ -25,7 +25,7 @@ npm start          # chạy máy chủ
 Mở trình duyệt: **http://localhost:3000**
 
 - Lần chạy đầu tiên hệ thống tự tạo file CSDL `data/neu-events.db` và dữ liệu mẫu.
-- `npm run seed` – xóa và tạo lại dữ liệu mẫu (**nên chạy ngay trước buổi demo**: thời gian sự kiện mẫu được tính theo ngày chạy seed, nên luôn có sự kiện *đã kết thúc / đang diễn ra / sắp diễn ra*; sự kiện “Ứng dụng AI…” đang diễn ra trong ~3,5 giờ kể từ lúc seed và đã mở phiên điểm danh với mã **AI1210**).
+- `npm run seed` – xóa và tạo lại dữ liệu mẫu (**nên chạy ngay trước buổi demo**: thời gian sự kiện mẫu được tính theo ngày chạy seed, nên luôn có sự kiện *đã kết thúc / đang diễn ra / sắp diễn ra*; sự kiện “Ứng dụng AI…” đang diễn ra trong ~3,5 giờ kể từ lúc seed và đã mở sẵn phiên check-in – mã QR/mã nhập tay **động, tự đổi mỗi 10 giây**, xem trên trang *Điểm danh* của BTC).
 - `npm run dev` – chạy và tự khởi động lại khi sửa code.
 - Đổi cổng: `PORT=4000 npm start` (Windows PowerShell: `$env:PORT=4000; npm start`).
 
@@ -91,6 +91,8 @@ Tài khoản cán bộ / đơn vị dùng email đuôi `@neu.edu.vn`, do Quản 
 
 Khi mở trang bằng `localhost`, mã QR tự dùng **địa chỉ LAN** của máy (in ra khi chạy `npm start`, dạng `http://192.168.x.x:3000`). Điện thoại kết nối **cùng Wi-Fi** quét QR → mở trang điểm danh, đăng nhập tài khoản sinh viên → tự xác nhận. Nếu Windows Firewall hỏi, chọn *Allow* cho Node.js.
 
+**Chống điểm danh hộ:** mã QR và mã nhập tay là **mã động đổi mỗi 10 giây** (HMAC của khóa bí mật phiên + khung thời gian 10 giây; chấp nhận thêm khung liền trước để bù độ trễ, tức mã sống tối đa ~20 giây). Ảnh chụp QR hay link/mã gửi qua tin nhắn cho người không có mặt sẽ hết hạn, sinh viên phải quét mã đang trình chiếu. BTC bấm *Trình chiếu QR* để phóng to mã lên màn hình; mã tự làm mới, có thanh đếm ngược.
+
 ## 6. Cấu trúc thư mục
 
 ```
@@ -125,7 +127,7 @@ NEUeventvs1/
 4. **vpdoan@neu.edu.vn** → *Duyệt sự kiện* → xem kế hoạch, kiểm tra phòng, chọn điểm Đoàn → *Duyệt & cấp điểm Đoàn*. Sinh viên vẫn chưa thấy sự kiện.
 5. **truyenthong@neu.edu.vn** → *Duyệt sự kiện* → xem banner → *Duyệt ấn phẩm & công khai sự kiện*. Thử *Từ chối* hồ sơ “Cuộc thi Ý tưởng khởi nghiệp” để thấy hồ sơ trả về BTC.
 6. **11240123** → đăng ký sự kiện vừa công khai (trang chi tiết có mục *Ấn phẩm truyền thông*).
-7. **cntt@neu.edu.vn** → *Điểm danh* → “Ứng dụng AI…” (mã **AI1210**) → check-in / check-out; sự kiện “Seminar Python” → *Gửi danh sách nhận điểm*.
+7. **cntt@neu.edu.vn** → *Điểm danh* → “Ứng dụng AI…” → *Trình chiếu QR* (mã đổi mỗi 10 giây), sinh viên nhập/quét mã đang hiện → check-in / check-out; sự kiện “Seminar Python” → *Gửi danh sách nhận điểm*.
 8. **vpdoan@neu.edu.vn** → *Duyệt điểm Đoàn* → duyệt; *Điểm Đoàn sinh viên* → tìm `11240123` → xem lịch sử điểm → *Cộng / trừ điểm*; *Xuất bảng điểm Excel*.
 9. **vpdoan@neu.edu.vn** → *Quản lý phòng* → thêm phòng, tạm ngưng phòng, xem lịch sử dụng phòng.
 10. **quantri@neu.edu.vn** → *Người dùng & phân quyền* → cấp tài khoản Văn phòng Đoàn / Phòng Truyền thông, xem *Ma trận phân quyền* 5 phân hệ.

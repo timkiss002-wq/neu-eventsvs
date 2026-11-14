@@ -1,4 +1,4 @@
-// Điểm danh: sinh viên tự check-in / check-out bằng mã hoặc QR; BTC mở/đóng phiên, theo dõi, sửa thủ công,
+// Điểm danh: sinh viên tự check-in / check-out bằng mã động hoặc QR động (đổi mỗi 10 giây); BTC mở/đóng phiên, theo dõi, sửa thủ công,
 // xuất Excel, gửi danh sách hoàn thành để Văn phòng Đoàn duyệt điểm Đoàn
 const express = require('express');
 const os = require('os');
@@ -6,7 +6,7 @@ const QRCode = require('qrcode');
 const ExcelJS = require('exceljs');
 const { q } = require('../db/database');
 const { now, addMinutes, randomCode, notify, audit, wrap, fail } = require('../lib/util');
-const { checkoutGrace, checkinLead, EVENT_SELECT, decorate, getEvent, mustManage, closeAttendance, finalizeEndedEvents, activeSession } = require('../lib/events');
+const { checkoutGrace, checkinLead, EVENT_SELECT, decorate, getEvent, mustManage, closeAttendance, finalizeEndedEvents, activeSession, rotatingCode, verifyRotating, QR_STEP } = require('../lib/events');
 const { requireAuth, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
@@ -50,7 +50,10 @@ router.post('/checkin', requireRole('student'), wrap((req, res) => {
   const at = now();
   if (!s) fail(400, 'Ban tổ chức chưa mở phiên điểm danh.');
   if (s.expires_at < at) fail(400, 'Mã điểm danh đã hết hiệu lực.');
-  if (s.code.toUpperCase() !== code) fail(400, 'Mã điểm danh không đúng.');
+  // Mã động: chỉ chấp nhận mã của khung 10 giây hiện tại (và khung liền trước để bù độ trễ)
+  if (!verifyRotating(s, code)) fail(400, method === 'qr'
+    ? `Mã QR đã hết hạn (mã đổi mỗi ${QR_STEP} giây). Hãy quét lại mã QR đang trình chiếu tại sự kiện.`
+    : `Mã không đúng hoặc đã hết hạn (mã đổi mỗi ${QR_STEP} giây). Hãy nhập mã đang trình chiếu tại sự kiện.`);
 
   if (s.kind === 'checkout') {
     if (reg.attendance !== 'present') fail(400, 'Bạn chưa được ban tổ chức ghi nhận check-in nên chưa thể check-out.');
@@ -84,12 +87,25 @@ router.get('/events', wrap((req, res) => {
   res.json({ events: rows.map((e) => ({ id: e.id, title: e.title, code: e.code, start_at: e.start_at, end_at: e.end_at, phase: e.phase, location: e.location, registered_count: e.registered_count, completed_count: e.completed_count, points_status: e.points_status })) });
 }));
 
+// Thông tin phiên + mã động hiện tại (không trả khóa bí mật của phiên)
 function sessionInfo(req, ev) {
   const s = activeSession(ev.id);
   if (!s) return null;
-  const url = `${publicOrigin(req)}/attendance.html?event=${ev.id}&code=${encodeURIComponent(s.code)}`;
-  return { ...s, valid: s.expires_at >= now(), url };
+  const { code: _secret, ...pub } = s; // bỏ khóa bí mật
+  const r = rotatingCode(s);
+  const url = `${publicOrigin(req)}/attendance.html?event=${ev.id}&code=${r.code}`;
+  return { ...pub, code: r.code, rotate_seconds: r.rotate_seconds, remaining_ms: r.remaining_ms, valid: s.expires_at >= now(), url };
 }
+const qrImage = (url) => QRCode.toDataURL(url, { margin: 1, width: 320, color: { dark: '#0f2a5c', light: '#ffffff' } });
+
+// Lấy mã QR động hiện tại (trang BTC gọi lại mỗi 10 giây để trình chiếu)
+router.get('/:eventId/qr', wrap(async (req, res) => {
+  const ev = getEvent(Number(req.params.eventId));
+  mustManage(req.user, ev);
+  const session = sessionInfo(req, ev);
+  if (!session) return res.json({ session: null, qr: null });
+  res.json({ session, qr: session.valid ? await qrImage(session.url) : null });
+}));
 
 const STATE_SQL = {
   pending: "r.attendance = 'pending'",
@@ -114,7 +130,7 @@ router.get('/:eventId', wrap(async (req, res) => {
                       ORDER BY CASE r.attendance WHEN 'pending' THEN 0 WHEN 'present' THEN 1 ELSE 2 END, r.checked_in_at DESC, u.full_name
                       LIMIT ? OFFSET ?`, ...params, lim, off).map((r) => ({ ...r, state: stateOf(r) }));
   const session = sessionInfo(req, ev);
-  const qr = session ? await QRCode.toDataURL(session.url, { margin: 1, width: 240, color: { dark: '#0f2a5c', light: '#ffffff' } }) : null;
+  const qr = session && session.valid ? await qrImage(session.url) : null;
   const last = q.get('SELECT * FROM attendance_sessions WHERE event_id = ? ORDER BY id DESC LIMIT 1', ev.id);
   const submission = q.get(`SELECT p.*, u.full_name AS reviewer_name FROM point_submissions p LEFT JOIN users u ON u.id = p.reviewed_by WHERE p.event_id = ?`, ev.id) || null;
   const at = now();
@@ -150,12 +166,11 @@ router.post('/:eventId/open', wrap((req, res) => {
   }
   const minutes = Math.min(600, Math.max(5, parseInt(req.body?.minutes, 10) || 45));
   let expires = addMinutes(at, minutes); if (expires > limit) expires = limit;
-  const custom = String(req.body?.code || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
-  const code = custom.length >= 4 ? custom : randomCode(6);
+  const code = randomCode(24); // khóa bí mật của phiên – dùng sinh mã động, không hiển thị
   q.tx(() => {
     q.run('UPDATE attendance_sessions SET closed_at = ? WHERE event_id = ? AND closed_at IS NULL', at, ev.id);
     q.run('INSERT INTO attendance_sessions (event_id,code,kind,opened_by,opened_at,expires_at) VALUES (?,?,?,?,?,?)', ev.id, code, kind, req.user.id, at, expires);
-    audit(req.user.id, `attendance.open_${kind}`, 'event', ev.id, `Mở phiên ${KIND_LABEL[kind]}, mã ${code}, hiệu lực tới ${expires.slice(11, 16)}`);
+    audit(req.user.id, `attendance.open_${kind}`, 'event', ev.id, `Mở phiên ${KIND_LABEL[kind]} (mã QR động ${QR_STEP} giây), hiệu lực tới ${expires.slice(11, 16)}`);
   });
   const targets = kind === 'checkin'
     ? q.all("SELECT user_id FROM registrations WHERE event_id = ? AND status='registered' AND attendance='pending'", ev.id)
@@ -163,7 +178,7 @@ router.post('/:eventId/open', wrap((req, res) => {
   for (const r of targets) {
     notify(r.user_id, { type: 'attendance', title: kind === 'checkin' ? 'Đã mở check-in' : 'Đã mở check-out', body: `"${ev.title}" đang mở ${KIND_LABEL[kind]} tới ${expires.slice(11, 16)}.`, link: `/attendance.html?event=${ev.id}` });
   }
-  res.json({ ok: true, kind, code, expires_at: expires });
+  res.json({ ok: true, kind, expires_at: expires });
 }));
 
 router.post('/:eventId/close', wrap((req, res) => {

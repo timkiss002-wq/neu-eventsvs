@@ -407,7 +407,7 @@ function seed() {
     submitPoints('logi', 'pending'); submitPoints('cv', 'pending');
     submitPoints('fintech', 'rejected', 'Danh sách có sinh viên trùng MSSV, đề nghị BTC rà soát và gửi lại.');
     q.run('INSERT INTO attendance_sessions (event_id,code,opened_by,opened_at,expires_at,closed_at) VALUES (?,?,?,?,?,NULL)',
-      evs.ai.id, 'AI1210', org.cntt, shift(aiStart, -15), aiEnd);
+      evs.ai.id, require('crypto').randomBytes(12).toString('hex'), org.cntt, shift(aiStart, -15), aiEnd);
 
     // ---------- Thông báo & lịch sử ----------
     const n = (uid, type, title, body, link, t) =>

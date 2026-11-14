@@ -61,11 +61,11 @@
     } else if (canSubmit) {
       const label = step === 'checkout' ? 'check-out' : 'check-in';
       form = `
-      <p class="desc">Nhập mã ${label} do ban tổ chức cung cấp tại địa điểm diễn ra sự kiện.</p>
+      <p class="desc">Quét mã QR hoặc nhập mã ${label} đang trình chiếu tại địa điểm. Mã <b>tự đổi mỗi 10 giây</b> – ảnh chụp hay link được gửi lại sẽ không dùng được.</p>
       <div id="ciAlert"></div>
       <label class="label" for="code">Mã ${label}</label>
       <div class="input">
-        <input id="code" type="text" placeholder="VD: AI1210" autocomplete="off" style="text-transform:uppercase" value="${esc(qrCode || '')}">
+        <input id="code" type="text" maxlength="6" placeholder="Mã 6 ký tự đang trình chiếu" autocomplete="off" style="text-transform:uppercase" value="${esc(qrCode || '')}">
         ${icon('key')}
       </div>
       <button class="btn-primary block" id="checkBtn">${icon('check')}Xác nhận ${label}</button>
@@ -109,11 +109,14 @@
           toast(r.kind === 'checkout' ? 'Check-out thành công – bạn đã hoàn thành sự kiện!' : 'Check-in thành công!', 'ok');
           history.replaceState(null, '', `?event=${ev.event_id}`);
           student();
-        } catch (err) { $('ciAlert').innerHTML = `<div class="alert err">${esc(err.message)}</div>`; $('checkBtn').disabled = false; }
+        } catch (err) {
+          $('ciAlert').innerHTML = `<div class="alert err">${esc(err.message)}</div>`; $('checkBtn').disabled = false;
+          if (method === 'qr') { $('code').value = ''; history.replaceState(null, '', `?event=${ev.event_id}`); } // mã QR cũ → bỏ khỏi link
+        }
       };
       $('checkBtn').onclick = () => submit(qrCode && $('code').value.trim().toUpperCase() === qrCode.toUpperCase() ? 'qr' : 'code');
       $('code').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('checkBtn').click(); });
-      $('qrHelp').onclick = (e) => { e.preventDefault(); modal({ title: 'Quét mã QR tại sự kiện', desc: 'Mở camera điện thoại và quét mã QR do ban tổ chức trình chiếu. Liên kết sẽ mở trang này và tự điền mã — hệ thống tự nhận biết đang là phiên check-in hay check-out.<br><br>Điện thoại cần kết nối cùng mạng Wi-Fi với máy chủ khi chạy trên localhost.', hideOk: true, cancelText: 'Đã hiểu' }); };
+      $('qrHelp').onclick = (e) => { e.preventDefault(); modal({ title: 'Quét mã QR tại sự kiện', desc: 'Mở camera điện thoại và quét mã QR do ban tổ chức trình chiếu. Liên kết sẽ mở trang này và tự xác nhận — hệ thống tự nhận biết đang là phiên check-in hay check-out.<br><br>Mã QR <b>đổi mỗi 10 giây</b>: hãy quét trực tiếp tại sự kiện; nếu báo hết hạn, quét lại mã mới trên màn hình.<br><br>Điện thoại cần kết nối cùng mạng Wi-Fi với máy chủ khi chạy trên localhost.', hideOk: true, cancelText: 'Đã hiểu' }); };
       if (qrCode && s && s.valid) submit('qr'); // mở từ QR → tự xác nhận
     }
   }
@@ -171,16 +174,17 @@
     const sessionHtml = s ? `
       <div class="session">
         <div class="session-left">
-          <div class="qr" id="qrBox" title="Phóng to mã QR"><img src="${d.qr}" alt="Mã QR điểm danh"></div>
+          <div class="qr" id="qrBox" title="Phóng to mã QR để trình chiếu">${d.qr ? `<img data-qr-img src="${d.qr}" alt="Mã QR điểm danh">` : icon('qr', 'stroke-width="1.6"')}</div>
           <div>
             <span class="session-kind ${s.kind === 'checkout' ? 'out' : ''}">Phiên ${kindLabel}</span>
-            <small>Mã ${kindLabel} hiện tại</small>
-            <strong>${esc(s.code)}</strong>
-            <span>${s.valid ? `Hiệu lực tới ${fmtTime(s.expires_at)}` : `Đã hết hiệu lực lúc ${fmtTime(s.expires_at)}`} • Chỉ dùng tại sự kiện</span>
+            <small>Mã ${kindLabel} động</small>
+            <strong data-qr-code>${s.valid ? esc(s.code) : '——'}</strong>
+            ${s.valid ? `<div class="qr-timer"><i data-qr-bar></i></div><span><b data-qr-count>${Math.ceil(s.remaining_ms / 1000)}</b> giây nữa đổi mã • Phiên hiệu lực tới ${fmtTime(s.expires_at)}</span>`
+              : `<span>Đã hết hiệu lực lúc ${fmtTime(s.expires_at)}</span>`}
           </div>
         </div>
         <div class="session-actions">
-          <button class="btn-outline" id="renewBtn">${icon('swap')}Đổi mã</button>
+          ${s.valid ? `<button class="btn-outline" id="presentBtn">${icon('qr')}Trình chiếu QR</button>` : ''}
           ${openBtns}
           <button class="btn-outline" id="closeBtn">Đóng phiên</button>
         </div>
@@ -262,7 +266,7 @@
             <a class="btn-outline" href="/event-detail.html?id=${ev.id}">Chi tiết sự kiện</a>
           </div>
         </div>
-        <p class="fine">Danh sách đăng ký dùng để đối chiếu khi check-in. Danh sách hoàn thành gồm sinh viên có đủ check-in và check-out – dùng để nộp nhận điểm Đoàn, quyền lợi. Thay đổi thủ công cần có lý do và được lưu lịch sử. Danh sách tự làm mới mỗi 15 giây.</p>
+        <p class="fine">Mã QR và mã nhập tay tự đổi mỗi ${s ? s.rotate_seconds : 10} giây – ảnh chụp hoặc link QR gửi cho người không có mặt sẽ hết hạn, sinh viên phải quét mã đang trình chiếu tại sự kiện. Danh sách đăng ký dùng để đối chiếu khi check-in. Danh sách hoàn thành gồm sinh viên có đủ check-in và check-out – dùng để nộp nhận điểm Đoàn, quyền lợi. Thay đổi thủ công cần có lý do và được lưu lịch sử. Danh sách tự làm mới mỗi 15 giây.</p>
       </section>`;
 
     // ----- Sự kiện -----
@@ -276,7 +280,6 @@
     $('exportDone').onclick = () => App.download(`/api/attendance/${ev.id}/export?type=completed`);
     if ($('openIn')) $('openIn').onclick = () => openSession(ev, 'checkin');
     if ($('openOut')) $('openOut').onclick = () => openSession(ev, 'checkout');
-    if ($('renewBtn')) $('renewBtn').onclick = () => openSession(ev, s.kind, true);
     if ($('closeBtn')) $('closeBtn').onclick = async () => {
       const desc = s.kind === 'checkout'
         ? 'Sinh viên chưa check-out sẽ không được tính là hoàn thành. Bạn có thể mở lại phiên check-out hoặc cập nhật thủ công sau đó.'
@@ -294,25 +297,66 @@
       });
       if (v) { toast('Đã gửi danh sách – chờ Văn phòng Đoàn duyệt.', 'ok'); renderOrganizer(); }
     };
-    if ($('qrBox')) $('qrBox').onclick = () => modal({ title: `Mã QR ${kindLabel}`, hideOk: true, cancelText: 'Đóng',
-      html: `<div class="qr-big"><img src="${d.qr}" alt="QR"><strong>${esc(s.code)}</strong><span class="hint">Phiên ${kindLabel} • hiệu lực tới ${fmtTime(s.expires_at)}</span><a href="${esc(s.url)}" target="_blank">${esc(s.url)}</a></div>` });
+    const present = () => {
+      if (!qrState.qr) return;
+      modal({ title: `Mã QR ${kindLabel} – ${ev.title}`, hideOk: true, cancelText: 'Đóng', wide: true,
+        html: `<div class="qr-big"><img data-qr-img src="${qrState.qr}" alt="QR"><strong data-qr-code>${esc(qrState.code)}</strong>
+          <div class="qr-timer big"><i data-qr-bar></i></div>
+          <span class="hint">Mã đổi sau <b data-qr-count>${Math.ceil(Math.max(0, qrState.nextAt - Date.now()) / 1000)}</b> giây • Phiên ${kindLabel} hiệu lực tới ${fmtTime(s.expires_at)}</span>
+          <span class="hint">Quét bằng camera điện thoại (cùng mạng Wi-Fi) • Không chụp lại gửi cho người khác – mã sẽ hết hạn</span></div>` });
+      tickQr();
+    };
+    if ($('qrBox') && s && s.valid) $('qrBox').onclick = present;
+    if ($('presentBtn')) $('presentBtn').onclick = present;
+    startQr(ev.id, s && s.valid ? { code: s.code, qr: d.qr, remaining_ms: s.remaining_ms, rotate_seconds: s.rotate_seconds } : null);
     document.querySelectorAll('[data-mark]').forEach((a) => a.addEventListener('click', () => markManual(ev, a.dataset)));
+  }
+
+  // ----- Mã QR động: tự lấy mã mới mỗi khi hết chu kỳ (mặc định 10 giây), cập nhật cả khung nhỏ và cửa sổ trình chiếu -----
+  const qrState = { eventId: null, code: '', qr: '', nextAt: 0, period: 10, fetchT: null, tickT: null };
+  function stopQr() { clearTimeout(qrState.fetchT); clearInterval(qrState.tickT); qrState.eventId = null; }
+  function tickQr() {
+    const left = Math.max(0, qrState.nextAt - Date.now());
+    document.querySelectorAll('[data-qr-count]').forEach((el) => { el.textContent = Math.ceil(left / 1000); });
+    document.querySelectorAll('[data-qr-bar]').forEach((el) => { el.style.width = `${(left / (qrState.period * 1000)) * 100}%`; });
+  }
+  function applyQr(v) {
+    Object.assign(qrState, { code: v.code, qr: v.qr, period: v.rotate_seconds || 10, nextAt: Date.now() + v.remaining_ms });
+    document.querySelectorAll('[data-qr-img]').forEach((el) => { el.src = v.qr; });
+    document.querySelectorAll('[data-qr-code]').forEach((el) => { el.textContent = v.code; });
+    tickQr();
+    clearTimeout(qrState.fetchT);
+    qrState.fetchT = setTimeout(fetchQr, Math.max(300, v.remaining_ms + 150));
+  }
+  async function fetchQr() {
+    const id = qrState.eventId;
+    if (!id) return;
+    try {
+      const r = await api(`/api/attendance/${id}/qr`);
+      if (id !== qrState.eventId) return;
+      if (!r.session || !r.qr) { stopQr(); renderOrganizer(true); return; } // phiên đã đóng / hết hạn
+      applyQr({ ...r.session, qr: r.qr });
+    } catch { qrState.fetchT = setTimeout(fetchQr, 2000); } // lỗi mạng tạm thời → thử lại
+  }
+  function startQr(id, first) {
+    stopQr();
+    if (!first || !first.qr) return;
+    qrState.eventId = id;
+    applyQr(first);
+    qrState.tickT = setInterval(tickQr, 250);
   }
 
   async function openSession(ev, kind, renew = false) {
     const label = kind === 'checkout' ? 'check-out' : 'check-in';
     const v = await modal({
-      title: renew ? `Đổi mã ${label}` : `Mở phiên ${label}`, okText: renew ? 'Tạo mã mới' : 'Mở phiên',
-      desc: renew ? 'Mã cũ sẽ hết hiệu lực ngay. Sinh viên đã ghi nhận không bị ảnh hưởng.'
-        : kind === 'checkout' ? 'Sinh viên đã check-in sẽ nhận thông báo để check-out. Phiên check-in đang mở (nếu có) sẽ được đóng nhưng không ghi vắng.'
-          : 'Sinh viên đã đăng ký sẽ nhận thông báo. Mã chỉ dùng được trong thời gian hiệu lực.',
+      title: `Mở phiên ${label}`, okText: 'Mở phiên',
+      desc: (kind === 'checkout' ? 'Sinh viên đã check-in sẽ nhận thông báo để check-out. Phiên check-in đang mở (nếu có) sẽ được đóng nhưng không ghi vắng.'
+          : 'Sinh viên đã đăng ký sẽ nhận thông báo.') + ' Mã QR và mã nhập tay <b>tự đổi mỗi 10 giây</b>, sinh viên phải quét mã đang trình chiếu tại địa điểm.',
       html: `<label class="label">Thời gian hiệu lực</label>
-        <select class="select" id="m-min" style="width:100%"><option value="15">15 phút</option><option value="30">30 phút</option><option value="45" selected>45 phút</option><option value="60">60 phút</option><option value="120">120 phút</option><option value="600">Tối đa cho phép</option></select>
-        <label class="label">Mã tùy chọn (để trống để hệ thống tạo ngẫu nhiên)</label>
-        <input class="inp" id="m-code" maxlength="10" placeholder="${kind === 'checkout' ? 'VD: OUT1210' : 'VD: AI1210'}" style="text-transform:uppercase">`,
-      onOk: async (root) => api(`/api/attendance/${ev.id}/open`, { method: 'POST', body: { kind, minutes: root.querySelector('#m-min').value, code: root.querySelector('#m-code').value } }),
+        <select class="select" id="m-min" style="width:100%"><option value="15">15 phút</option><option value="30">30 phút</option><option value="45" selected>45 phút</option><option value="60">60 phút</option><option value="120">120 phút</option><option value="600">Tối đa cho phép</option></select>`,
+      onOk: async (root) => api(`/api/attendance/${ev.id}/open`, { method: 'POST', body: { kind, minutes: root.querySelector('#m-min').value } }),
     });
-    if (v) { toast(`Đã mở phiên ${label} – mã ${v.code}, hiệu lực tới ${fmtTime(v.expires_at)}.`, 'ok'); renderOrganizer(); }
+    if (v) { toast(`Đã mở phiên ${label} (mã QR động) – hiệu lực tới ${fmtTime(v.expires_at)}.`, 'ok'); renderOrganizer(); }
   }
 
   async function markManual(ev, ds) {

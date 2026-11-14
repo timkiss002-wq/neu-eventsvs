@@ -54,10 +54,11 @@
 
 | Phương thức | Đường dẫn | Quyền | Mô tả |
 |---|---|---|---|
-| POST | `/attendance/checkin` | SV | `{ event_id, code, method: 'code'|'qr' }` |
+| POST | `/attendance/checkin` | SV | `{ event_id, code, method: 'code'|'qr' }` – `code` là **mã động** đổi mỗi 10 giây (chấp nhận khung hiện tại + khung liền trước) |
 | GET | `/attendance/events` | BTC, QL | Sự kiện có thể điểm danh (đang → sắp → đã kết thúc) |
 | GET | `/attendance/:eventId` | BTC, QL | Thống kê, phiên hiện tại + ảnh QR (data URL), danh sách. Tham số: `q`, `status`, `page`, `size` |
-| POST | `/attendance/:eventId/open` | BTC, QL | `{ minutes, code? }` – mở phiên / đổi mã |
+| GET | `/attendance/:eventId/qr` | BTC, QL | Mã động hiện tại + ảnh QR (data URL), `remaining_ms` tới lần đổi mã kế tiếp |
+| POST | `/attendance/:eventId/open` | BTC, QL | `{ kind, minutes }` – mở phiên; hệ thống sinh khóa bí mật cho phiên, mã QR/mã nhập tay tự đổi mỗi 10 giây |
 | POST | `/attendance/:eventId/close` | BTC, QL | Đóng phiên, chưa điểm danh → vắng mặt |
 | POST | `/attendance/:eventId/mark` | BTC, QL | `{ registration_id, attendance, reason }` – sửa thủ công (bắt buộc lý do) |
 | GET | `/attendance/:eventId/export` | BTC, QL | Tải file Excel danh sách điểm danh |
@@ -105,7 +106,7 @@ curl -b ck.txt "http://localhost:3000/api/events?phase=open"
 # Đăng ký sự kiện id 9
 curl -b ck.txt -X POST http://localhost:3000/api/events/9/register
 # Điểm danh
-curl -b ck.txt -H "Content-Type: application/json" -d '{"event_id":8,"code":"AI1210"}' http://localhost:3000/api/attendance/checkin
+curl -b ck.txt -H "Content-Type: application/json" -d '{"event_id":8,"code":"<mã 6 ký tự đang hiện trên trang BTC>"}' http://localhost:3000/api/attendance/checkin
 ```
 
 ## Bổ sung: check-out, điểm hoạt động, tài khoản đơn vị

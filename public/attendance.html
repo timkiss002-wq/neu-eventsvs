@@ -240,7 +240,11 @@
   .my-item b { display: block; font-size: 15px; }
   .my-item small { font-size: 14.5px; color: var(--muted); }
   .qr-big { display: grid; place-items: center; gap: 12px; text-align: center; }
-  .qr-big img { width: 280px; height: 280px; }
+  .qr-big img { width: min(420px, 78vw); height: auto; aspect-ratio: 1; }
+  .qr-timer { height: 4px; width: 140px; max-width: 100%; background: #dbe6f6; border-radius: 4px; overflow: hidden; margin: 6px 0 4px; }
+  .qr-timer i { display: block; height: 100%; width: 100%; background: var(--blue, #1451a8); transition: width .25s linear; }
+  .qr-timer.big { width: min(420px, 78vw); height: 6px; }
+  #qrBox { width: 96px; height: 96px; }
   .qr-big strong { font-size: 34px; letter-spacing: 4px; color: var(--navy); }
   .qr-big a { font-size: 14.5px; color: var(--blue); word-break: break-all; }
   .table-foot .right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
